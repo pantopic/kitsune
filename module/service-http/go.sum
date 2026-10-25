@@ -1,0 +1,4 @@
+github.com/pantopic/ext-http-server/sdk-go v0.0.0-20261022031028-b06e5d1953d6 h1:76dcmhfsABz62knL34iT5T6b9ZsjG+C3/MWlo6O8TgM=
+github.com/pantopic/ext-http-server/sdk-go v0.0.0-20261022031028-b06e5d1953d6/go.mod h1:97BUJE8gVkzObiSZ3wUhpkHdHiEKECaHBvZtyW2dG2Q=
+github.com/pantopic/ext-shard-client/sdk-go v0.0.3 h1:XrbLKuylFWS0OBDud4ZJjw6+lDx1eXQ0bCZ2eSnWQg0=
+github.com/pantopic/ext-shard-client/sdk-go v0.0.3/go.mod h1:c2Duo6U63dbZgWQckX3fu8NLd+CMjgX9vaOur8I4q3Q=
