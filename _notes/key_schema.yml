@@ -1,0 +1,57 @@
+meta:
+  index:      [index/8]
+  term:       [term/8]
+  epoch:      [epoch/8]
+  queue_id:   [queue_id/8]
+  generation: [generation/8]
+
+queue_id:
+  [name]: [queue_id/8]
+queue:
+  [queue_id/8]: [properties/4][name]
+queue_stat:
+  [queue_id/8]: [total_msg/8][total_bytes/8]
+queue_stat_ts:
+  [queue_id/8][epoch/8]: [total_msg/8][total_bytes/8][expired/4][latency_hist/*]
+queue_partition:
+  [queue_id/8][group_start/8]: [generation/8][shard_id/8]
+queue_shard:
+  [queue_id/8][shard_id/8]: [created/8][deleted/8][status/2]
+queue_generation:
+  [queue_id/8][generation/8][shard_id/8]: [created/8][group_start/8][group_end/8][status/2]*
+
+message_pending: # DupSort
+  [queue_id/8][epoch/8][group_hash/8]: [+message_id/8]
+message_active: # DupSort
+  [timeout/8][queue_id/8][group_hash/8]: [+message_id/8]
+message_expire: # DupSort
+  [expires/8][queue_id/8][group_hash/8]: [+message_id/8]
+message:
+  [queue_id/8][group_hash/8][message_id/8]: [expires/8][refresh/2][attributes/*]
+message_data:
+  [queue_id/8][group_hash/8][message_id/8]: [body]
+
+# --- IDs ---
+
+message_id:
+  [queue_id/8][group_hash/8][message_id/8]
+receipt_handle:
+  [queue_id/8][group_hash/8][message_id/8][timeout/8]
+
+# --- DLQ ---
+
+queue:
+  [queue_id/8]: [properties/4][name][?+dlq_id/8]
+
+# --- Tags ---
+
+queue:
+  [queue_id/8]: [properties/4][name][?dlq_id/8][?+tag_id/8]
+tag:
+  [tag_id/8]: [tag_name]
+tag_id:
+  [tag_name]: [tag_id/8]
+tag_queue:
+  [tag_id/8]: [+queue_id/8]
+meta:
+  tag_id:   [tag_id/8]

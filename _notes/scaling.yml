@@ -1,0 +1,7 @@
+Shard ID 0 is created at initialization
+Shard ID 0 is authoritative for message routing
+Non-0 shards have partial queue_generation table pertaining only to themselves
+All service instances open a read stream to Shard ID 0 for real-time queue routing data
+
+
+
