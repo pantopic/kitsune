@@ -1,4 +1,4 @@
-# Queue
+# Kitsune
 
 A distributed queue that's mostly API compatible with [SQS](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/Welcome.html).
 

@@ -1,4 +1,4 @@
-module github.com/pantopic/queue/module/storage-queue
+module github.com/pantopic/kitsune/module/storage-queue
 
 go 1.25.7
 

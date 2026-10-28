@@ -42,15 +42,7 @@ cloc-native:
 cloc-wasm:
 	@cloc ./module --exclude-dir=_example,_dist,internal,patch --exclude-ext=pb.go
 
-gen: gen-host gen-lite
-
-gen-host:
-	@protoc internal/*.proto \
-		--go_out=internal \
-		--go_opt=paths=source_relative \
-		--go-grpc_out=internal \
-		--go-grpc_opt=paths=source_relative \
-		-I internal
+gen: gen-lite
 
 gen-lite:
 	@protoc internal/*.proto \

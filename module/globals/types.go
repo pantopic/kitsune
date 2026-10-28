@@ -1,4 +1,4 @@
-package main
+package globals
 
 import (
 	"github.com/aperturerobotics/protobuf-go-lite"
@@ -27,6 +27,11 @@ const (
 	QUERY_QUEUE_URL
 	QUERY_QUEUE_ATTRIBUTES
 	QUERY_QUEUE_DEAD_LETTER_SOURCE
+)
+
+var (
+	// ALLOW_UNSAFE_GET determines whether unsafe get operations are allowed.
+	ALLOW_UNSAFE_GET = global.NewBool(`ALLOW_UNSAFE_GET`, false)
 )
 
 var (

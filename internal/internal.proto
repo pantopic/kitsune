@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package queue;
+package internal;
 
-option go_package = "github.com/pantopic/queue/internal";
+option go_package = "github.com/pantopic/kitsune/internal";
 
 message TickRequest {
   uint64 term = 1;

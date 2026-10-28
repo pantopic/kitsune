@@ -1,4 +1,4 @@
-module github.com/pantopic/queue/module/service-http
+module github.com/pantopic/kitsune/module/service-http
 
 go 1.25.12
 

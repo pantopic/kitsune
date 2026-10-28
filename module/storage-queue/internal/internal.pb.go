@@ -2,7 +2,7 @@
 // protoc-gen-go-lite version: v0.15.0
 // source: internal.proto
 
-package queue
+package internal
 
 import (
 	fmt "fmt"
