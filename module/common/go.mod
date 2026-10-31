@@ -1,4 +1,4 @@
-module github.com/pantopic/kitsune/module/globals
+module github.com/pantopic/kitsune/module/common
 
 go 1.25.7
 

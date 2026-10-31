@@ -4,10 +4,6 @@ import (
 	"github.com/pantopic/ext-http-server/sdk-go"
 )
 
-const (
-	BUFFER_POOL_WATCH_EVENT = iota
-)
-
 func init() {
 	http_server.Init(
 		http_server.WithHandler(httpHandler),
@@ -17,7 +13,7 @@ func init() {
 func main() {
 }
 
-func httpHandler(method, path, body []byte) (code int, res []byte) {
+func httpHandler(method, path []byte) (code int, res []byte) {
 	switch string(path) {
 	case "/metrics":
 		res = append(res, []byte(`pantopic_power_level 9001`)...)

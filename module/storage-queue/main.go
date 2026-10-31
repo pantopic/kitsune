@@ -5,7 +5,7 @@ import (
 	"github.com/pantopic/ext-raft/sdk-go"
 	"github.com/pantopic/ext-range-watch/sdk-go"
 
-	"github.com/pantopic/kitsune/module/globals"
+	"github.com/pantopic/kitsune/module/common"
 	"github.com/pantopic/kitsune/module/storage-queue/internal"
 )
 
@@ -48,36 +48,36 @@ func update(index uint64, cmd []byte) (value uint64, data []byte) {
 		}
 	}
 	switch cmd[len(cmd)-1] {
-	case globals.CMD_QUEUE_CREATE:
+	case common.CMD_QUEUE_CREATE:
 		// Incr queue_id
 		// Insert queue_id
 		// Insert queue
 		// Insert queue_stat
-	case globals.CMD_QUEUE_PURGE:
+	case common.CMD_QUEUE_PURGE:
 		// Find queue
 		//   else return error
 		// Delete message (prefix queue_id)
-	case globals.CMD_QUEUE_DELETE:
+	case common.CMD_QUEUE_DELETE:
 		// Find queue
 		//   else return error
 		// Delete queue_id
 		// Delete queue
 		// Delete queue_stat
 		// Delete message (prefix queue_id)
-	case globals.CMD_MESSAGE_SEND:
+	case common.CMD_MESSAGE_SEND:
 		// Find queue
 		//   else return error
 		// Find group
 		//   else insert group, group_name, group_stat
 		// Insert message
 		// Insert data
-	case globals.CMD_MESSAGE_DELETE:
+	case common.CMD_MESSAGE_DELETE:
 		// Find message
 		//   else return error
 		// Delete message
 		// Delete message_active
 		// Delete message_expire
-	case globals.CMD_MESSAGE_RECEIVE:
+	case common.CMD_MESSAGE_RECEIVE:
 		// Find queue
 		//   else return error
 		// Scan message (prefix queue_id)
@@ -86,7 +86,7 @@ func update(index uint64, cmd []byte) (value uint64, data []byte) {
 		// Insert message_active
 		// Insert message_expire
 		// Return data
-	case globals.CMD_INTERNAL_TICK:
+	case common.CMD_INTERNAL_TICK:
 		var req = &internal.TickRequest{}
 		if err = req.UnmarshalVT(cmd[:len(cmd)-1]); err != nil {
 			data = []byte(`Invalid command: ` + string(cmd))
@@ -113,7 +113,7 @@ func update(index uint64, cmd []byte) (value uint64, data []byte) {
 			panic(`Unable to marshal response: ` + err.Error())
 		}
 		value = index
-	case globals.CMD_INTERNAL_TERM:
+	case common.CMD_INTERNAL_TERM:
 		var req = &internal.TermRequest{}
 		if err = req.UnmarshalVT(cmd[:len(cmd)-1]); err != nil {
 			data = []byte(`Invalid command: ` + string(cmd))
@@ -153,16 +153,16 @@ func finish() {
 
 func read(query []byte) (value uint64, data []byte) {
 	switch query[len(query)-1] {
-	case globals.QUERY_QUEUE_LIST:
+	case common.QUERY_QUEUE_LIST:
 		// Scan queues
 		// Return list of queues
-	case globals.QUERY_QUEUE_URL:
+	case common.QUERY_QUEUE_URL:
 		// Find queue
 		// Return queue url
-	case globals.QUERY_QUEUE_ATTRIBUTES:
+	case common.QUERY_QUEUE_ATTRIBUTES:
 		// Find queue
 		// Return queue attributes
-	case globals.QUERY_QUEUE_DEAD_LETTER_SOURCE:
+	case common.QUERY_QUEUE_DEAD_LETTER_SOURCE:
 		// Find queue
 		// Return queue dead letter sources
 	}
