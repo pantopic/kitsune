@@ -1,13 +1,13 @@
-package queue
+package kitsune
 
 import (
 	_ "embed"
 )
 
 const (
-	ServiceGrpcName = "pantopic/queue/service/http"
-	StorageKvName   = "pantopic/queue/storage/kv"
-	Version         = 0
+	ServiceGrpcName  = "pantopic/kitsune/service/http"
+	StorageQueueName = "pantopic/kitsune/storage/queue"
+	Version          = 0
 )
 
 //go:embed service-http.wasm
