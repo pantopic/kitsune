@@ -1,4 +1,4 @@
-module github.com/pantopic/kitsune/module/lib
+module github.com/pantopic/kitsune/module/pkg
 
 go 1.25.7
 

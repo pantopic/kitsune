@@ -1,32 +1,7 @@
-package lib
+package globals
 
 import (
-	"github.com/aperturerobotics/protobuf-go-lite"
-
 	"github.com/pantopic/ext-global/sdk-go"
-)
-
-type (
-	Message protobuf_go_lite.Message
-)
-
-const (
-	CMD_INTERNAL_TERM byte = iota
-	CMD_INTERNAL_TICK
-	CMD_QUEUE_CREATE
-	CMD_QUEUE_DELETE
-	CMD_QUEUE_PURGE
-	CMD_MESSAGE_SEND
-	CMD_MESSAGE_DELETE
-	CMD_MESSAGE_RECEIVE
-	CMD_MESSAGE_REFRESH
-)
-
-const (
-	QUERY_QUEUE_LIST byte = iota
-	QUERY_QUEUE_URL
-	QUERY_QUEUE_ATTRIBUTES
-	QUERY_QUEUE_DEAD_LETTER_SOURCE
 )
 
 var (

@@ -5,8 +5,9 @@ import (
 	"github.com/pantopic/ext-raft/sdk-go"
 	"github.com/pantopic/ext-range-watch/sdk-go"
 
-	"github.com/pantopic/kitsune/module/lib"
-	"github.com/pantopic/kitsune/module/lib/pb"
+	"github.com/pantopic/kitsune/module/pkg/cmd"
+	"github.com/pantopic/kitsune/module/pkg/pb"
+	"github.com/pantopic/kitsune/module/pkg/query"
 )
 
 var (
@@ -34,7 +35,7 @@ func open() (index uint64) {
 	return
 }
 
-func update(index uint64, cmd []byte) (value uint64, data []byte) {
+func update(index uint64, c []byte) (value uint64, data []byte) {
 	newIndex = index
 	var err error
 	if txn == 0 {
@@ -47,37 +48,37 @@ func update(index uint64, cmd []byte) (value uint64, data []byte) {
 			panic(`Unable to get epoch: ` + err.Error())
 		}
 	}
-	switch cmd[len(cmd)-1] {
-	case lib.CMD_QUEUE_CREATE:
+	switch c[len(c)-1] {
+	case cmd.QUEUE_CREATE:
 		// Incr queue_id
 		// Insert queue_id
 		// Insert queue
 		// Insert queue_stat
-	case lib.CMD_QUEUE_PURGE:
+	case cmd.QUEUE_PURGE:
 		// Find queue
 		//   else return error
 		// Delete message (prefix queue_id)
-	case lib.CMD_QUEUE_DELETE:
+	case cmd.QUEUE_DELETE:
 		// Find queue
 		//   else return error
 		// Delete queue_id
 		// Delete queue
 		// Delete queue_stat
 		// Delete message (prefix queue_id)
-	case lib.CMD_MESSAGE_SEND:
+	case cmd.MESSAGE_SEND:
 		// Find queue
 		//   else return error
 		// Find group
 		//   else insert group, group_name, group_stat
 		// Insert message
 		// Insert data
-	case lib.CMD_MESSAGE_DELETE:
+	case cmd.MESSAGE_DELETE:
 		// Find message
 		//   else return error
 		// Delete message
 		// Delete message_active
 		// Delete message_expire
-	case lib.CMD_MESSAGE_RECEIVE:
+	case cmd.MESSAGE_RECEIVE:
 		// Find queue
 		//   else return error
 		// Scan message (prefix queue_id)
@@ -86,10 +87,10 @@ func update(index uint64, cmd []byte) (value uint64, data []byte) {
 		// Insert message_active
 		// Insert message_expire
 		// Return data
-	case lib.CMD_INTERNAL_TICK:
+	case cmd.INTERNAL_TICK:
 		var req = &pb.TickRequest{}
-		if err = req.UnmarshalVT(cmd[:len(cmd)-1]); err != nil {
-			data = []byte(`Invalid command: ` + string(cmd))
+		if err = req.UnmarshalVT(c[:len(c)-1]); err != nil {
+			data = []byte(`Invalid command: ` + string(c))
 			return
 		}
 		term, err := dbMeta.getTerm(txn)
@@ -113,10 +114,10 @@ func update(index uint64, cmd []byte) (value uint64, data []byte) {
 			panic(`Unable to marshal response: ` + err.Error())
 		}
 		value = index
-	case lib.CMD_INTERNAL_TERM:
+	case cmd.INTERNAL_TERM:
 		var req = &pb.TermRequest{}
-		if err = req.UnmarshalVT(cmd[:len(cmd)-1]); err != nil {
-			data = []byte(`Invalid command: ` + string(cmd))
+		if err = req.UnmarshalVT(c[:len(c)-1]); err != nil {
+			data = []byte(`Invalid command: ` + string(c))
 			return
 		}
 		term, err := dbMeta.getTerm(txn)
@@ -151,18 +152,18 @@ func finish() {
 	txn = 0
 }
 
-func read(query []byte) (value uint64, data []byte) {
-	switch query[len(query)-1] {
-	case lib.QUERY_QUEUE_LIST:
+func read(q []byte) (value uint64, data []byte) {
+	switch q[len(q)-1] {
+	case query.QUEUE_LIST:
 		// Scan queues
 		// Return list of queues
-	case lib.QUERY_QUEUE_URL:
+	case query.QUEUE_URL:
 		// Find queue
 		// Return queue url
-	case lib.QUERY_QUEUE_ATTRIBUTES:
+	case query.QUEUE_ATTRIBUTES:
 		// Find queue
 		// Return queue attributes
-	case lib.QUERY_QUEUE_DEAD_LETTER_SOURCE:
+	case query.QUEUE_DEAD_LETTER_SOURCE:
 		// Find queue
 		// Return queue dead letter sources
 	}

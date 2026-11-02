@@ -1,0 +1,8 @@
+package query
+
+const (
+	QUEUE_LIST byte = iota
+	QUEUE_URL
+	QUEUE_ATTRIBUTES
+	QUEUE_DEAD_LETTER_SOURCE
+)
