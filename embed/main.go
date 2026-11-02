@@ -5,16 +5,16 @@ import (
 )
 
 const (
-	ServiceGrpcName  = "pantopic/kitsune/service/http"
+	ServiceHttpName  = "pantopic/kitsune/service/http"
 	StorageQueueName = "pantopic/kitsune/storage/queue"
 	Version          = 0
 )
 
 //go:embed service-http.wasm
-var ServiceGrpcWasm []byte
+var ServiceHttpWasm []byte
 
 //go:embed service-http.dev.wasm
-var ServiceGrpcDevWasm []byte
+var ServiceHttpDevWasm []byte
 
 //go:embed storage-queue.wasm
 var StorageQueueWasm []byte

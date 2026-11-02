@@ -57,13 +57,13 @@ gen-lite-install:
 	go install github.com/aperturerobotics/protobuf-go-lite/cmd/protoc-gen-go-lite@latest
 
 wasm-storage-queue:
-	@cd module/storage-queue && tinygo build -buildmode=wasi-legacy -target=wasi -opt=s -gc=leaking -scheduler=none -o ../../embed/storage-queue.wasm -no-debug
+	cd module/storage-queue && tinygo build -buildmode=wasi-legacy -target=wasi -opt=s -gc=leaking -scheduler=none -o ../../embed/storage-queue.wasm -no-debug
 wasm-storage-queue-dev:
-	@cd module/storage-queue && tinygo build -buildmode=wasi-legacy -target=wasi -opt=2 -gc=leaking -scheduler=none -o ../../embed/storage-queue.dev.wasm
+	cd module/storage-queue && tinygo build -buildmode=wasi-legacy -target=wasi -opt=2 -gc=leaking -scheduler=none -o ../../embed/storage-queue.dev.wasm
 wasm-service-http:
-	@cd module/service-http && tinygo build -buildmode=wasi-legacy -target=wasi -opt=s -gc=leaking -scheduler=none -o ../../embed/service-http.wasm -no-debug
+	cd module/service-http && tinygo build -buildmode=wasi-legacy -target=wasi -opt=s -gc=leaking -scheduler=none -o ../../embed/service-http.wasm -no-debug
 wasm-service-http-dev:
-	@cd module/service-http && tinygo build -buildmode=wasi-legacy -target=wasi -opt=2 -gc=leaking -scheduler=none -o ../../embed/service-http.dev.wasm
+	cd module/service-http && tinygo build -buildmode=wasi-legacy -target=wasi -opt=2 -gc=leaking -scheduler=none -o ../../embed/service-http.dev.wasm
 wasm-dev: wasm-storage-queue-dev wasm-service-http-dev
 wasm-prod: wasm-storage-queue wasm-service-http
 wasm-storage: wasm-storage-queue wasm-storage-queue-dev
