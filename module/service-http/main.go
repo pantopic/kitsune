@@ -4,6 +4,9 @@ import (
 	"github.com/tidwall/gjson"
 
 	"github.com/pantopic/ext-http-server/sdk-go"
+	"github.com/pantopic/ext-shard-client/sdk-go"
+
+	"github.com/pantopic/kitsune/module/pkg/query"
 )
 
 var (
@@ -11,6 +14,7 @@ var (
 )
 
 func init() {
+	shard_client.RegisterAsyncRecv(asyncRecv)
 	http_server.Init(
 		http_server.WithHandler(httpHandler),
 	)
@@ -42,8 +46,21 @@ func httpHandler(method, path []byte) {
 			return
 		}
 	case "/health":
-		http_server.Send(200, []byte(`ok`))
+		queueShard().ReadAsync([]byte(`health`), []byte{query.HEALTH_CHECK}, true)
 	default:
 		http_server.Send(404, []byte(`not found`))
+	}
+}
+
+func asyncRecv(name, data []byte, val uint64, err error) {
+	if err != nil {
+		http_server.Send(500, []byte(err.Error()))
+		return
+	}
+	switch string(name) {
+	case "health":
+		http_server.Send(int(val), data)
+	default:
+		panic("unknown asyncRecv name: " + string(name))
 	}
 }

@@ -1,7 +1,8 @@
 package query
 
 const (
-	QUEUE_LIST byte = iota
+	HEALTH_CHECK byte = iota
+	QUEUE_LIST
 	QUEUE_URL
 	QUEUE_ATTRIBUTES
 	QUEUE_DEAD_LETTER_SOURCE

@@ -152,8 +152,10 @@ func finish() {
 	txn = 0
 }
 
-func read(q []byte) (value uint64, data []byte) {
+func read(q []byte) (val uint64, data []byte) {
 	switch q[len(q)-1] {
+	case query.HEALTH_CHECK:
+		return 200, []byte(`Okay`)
 	case query.QUEUE_LIST:
 		// Scan queues
 		// Return list of queues
