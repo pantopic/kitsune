@@ -1,0 +1,12 @@
+github.com/aperturerobotics/protobuf-go-lite v0.19.0 h1:7Veh1XY7pkswacItBnTR+skvPyNIFdOPg0tb3X0Yd/E=
+github.com/aperturerobotics/protobuf-go-lite v0.19.0/go.mod h1:3Ay/E7iaw2KWLirK3+dDdNJZHK0hu8Y1/kKeYeUa+8s=
+github.com/pantopic/ext-global/sdk-go v0.0.3 h1:aa3JHXzNMcOFHqeypbeiimazY+pqxzZUcNs7pRZaSak=
+github.com/pantopic/ext-global/sdk-go v0.0.3/go.mod h1:/ntwF+/A6/xLGHulre9KMQ09gdRBqhuHZvCaXMpN7Lk=
+github.com/pantopic/ext-mdb/sdk-go v0.0.10 h1:Y7Ol0SfuzGhZjp0EbUZ5pmQlCbReM3Lg9MUX/dw/SdA=
+github.com/pantopic/ext-mdb/sdk-go v0.0.10/go.mod h1:+YVZl8fiN/Jkk1nrpCJJl0iCYdY90zOrzjrBd+kuJhE=
+github.com/pantopic/ext-raft/sdk-go v0.0.2 h1:AIpu3g4nVT5U/CngHNYgi69S5bSbNrQ7FTXq1sY3/WI=
+github.com/pantopic/ext-raft/sdk-go v0.0.2/go.mod h1:0M9h4aTiRIk9LAF1bMb/yoWPVN8BpbfLFT6e5YY+04Q=
+github.com/pantopic/ext-range-watch/sdk-go v0.0.7 h1:uXgDr6mQrHC2fAQhgMa/7a5qPYbY28aNA/01qKARvPg=
+github.com/pantopic/ext-range-watch/sdk-go v0.0.7/go.mod h1:C8i6uDRSxAKtA+4CZFfhqyOAIKb9/W1WCWhFaXaqlTs=
+github.com/pantopic/kitsune/module/pkg v0.0.0-20261102163944-bb95e36633ea h1:U4/W4tvinVMCJfv9pbYLUYJo4r7DFZMou5cbu8cVPbg=
+github.com/pantopic/kitsune/module/pkg v0.0.0-20261102163944-bb95e36633ea/go.mod h1:+E0g2e4kTJE2v6+oBiVX0euBcaFRurKpkmS8xendZg8=
