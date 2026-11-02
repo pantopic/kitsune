@@ -1,4 +1,4 @@
-package common
+package lib
 
 import (
 	"github.com/aperturerobotics/protobuf-go-lite"

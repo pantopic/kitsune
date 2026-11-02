@@ -45,17 +45,13 @@ cloc-wasm:
 gen: gen-lite
 
 gen-lite:
-	@protoc internal/*.proto \
+	@mkdir -p module/lib/pb
+	@protoc internal.proto \
 		--plugin protoc-gen-go-lite="${GOBIN}/protoc-gen-go-lite" \
-		--go-lite_out=module/service-http/internal  \
+		--go-lite_out=module/lib/pb  \
 		--go-lite_opt=paths=source_relative \
 		--go-lite_opt=features=marshal+unmarshal+size \
-		-I internal
-	@cp module/service-http/internal/* module/storage-queue/internal
-
-gen-install:
-	go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+		-I .
 
 gen-lite-install:
 	go install github.com/aperturerobotics/protobuf-go-lite/cmd/protoc-gen-go-lite@latest
@@ -78,6 +74,7 @@ wasm: wasm-go
 
 work:
 	go work use embed
+	go work use module/lib
 	go work use module/service-http
 	go work use module/storage-queue
 

@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/pantopic/ext-mdb/sdk-go"
 
-	"github.com/pantopic/kitsune/module/common"
+	"github.com/pantopic/kitsune/module/lib"
 )
 
 type group struct {
@@ -30,7 +30,7 @@ func (db dbGroupImpl) create(
 		err = ErrGroupNameRequired
 		return
 	}
-	if len(name) > int(common.MAX_MESSAGE_GROUP_ID_LEN()) {
+	if len(name) > int(lib.MAX_MESSAGE_GROUP_ID_LEN()) {
 		err = ErrGroupNameTooLong
 		return
 	}

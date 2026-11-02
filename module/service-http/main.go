@@ -13,16 +13,15 @@ func init() {
 func main() {
 }
 
-func httpHandler(method, path []byte) (code int, res []byte) {
+func httpHandler(method, path []byte) {
 	switch string(path) {
-	case "/metrics":
-		res = append(res, []byte(`pantopic_power_level 9001`)...)
+	case "/":
+		http_server.Send(200, []byte(`pantopic_power_level 9001`))
 	case "/health":
-		res = append(res, []byte(`{"health":"true","reason":""}`)...)
+		http_server.Send(200, []byte(`{"health":"true","reason":""}`))
 	case "/version":
-		res = append(res, []byte(`{"etcdserver":"3.5.25","etcdcluster":"3.5.0"}`)...)
+		http_server.Send(200, []byte(`{"etcdserver":"3.5.25","etcdcluster":"3.5.0"}`))
 	default:
-		code = 405
+		http_server.Send(404, []byte(`not found`))
 	}
-	return
 }

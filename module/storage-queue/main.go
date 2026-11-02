@@ -5,8 +5,8 @@ import (
 	"github.com/pantopic/ext-raft/sdk-go"
 	"github.com/pantopic/ext-range-watch/sdk-go"
 
-	"github.com/pantopic/kitsune/module/common"
-	"github.com/pantopic/kitsune/module/storage-queue/internal"
+	"github.com/pantopic/kitsune/module/lib"
+	"github.com/pantopic/kitsune/module/lib/pb"
 )
 
 var (
@@ -48,36 +48,36 @@ func update(index uint64, cmd []byte) (value uint64, data []byte) {
 		}
 	}
 	switch cmd[len(cmd)-1] {
-	case common.CMD_QUEUE_CREATE:
+	case lib.CMD_QUEUE_CREATE:
 		// Incr queue_id
 		// Insert queue_id
 		// Insert queue
 		// Insert queue_stat
-	case common.CMD_QUEUE_PURGE:
+	case lib.CMD_QUEUE_PURGE:
 		// Find queue
 		//   else return error
 		// Delete message (prefix queue_id)
-	case common.CMD_QUEUE_DELETE:
+	case lib.CMD_QUEUE_DELETE:
 		// Find queue
 		//   else return error
 		// Delete queue_id
 		// Delete queue
 		// Delete queue_stat
 		// Delete message (prefix queue_id)
-	case common.CMD_MESSAGE_SEND:
+	case lib.CMD_MESSAGE_SEND:
 		// Find queue
 		//   else return error
 		// Find group
 		//   else insert group, group_name, group_stat
 		// Insert message
 		// Insert data
-	case common.CMD_MESSAGE_DELETE:
+	case lib.CMD_MESSAGE_DELETE:
 		// Find message
 		//   else return error
 		// Delete message
 		// Delete message_active
 		// Delete message_expire
-	case common.CMD_MESSAGE_RECEIVE:
+	case lib.CMD_MESSAGE_RECEIVE:
 		// Find queue
 		//   else return error
 		// Scan message (prefix queue_id)
@@ -86,8 +86,8 @@ func update(index uint64, cmd []byte) (value uint64, data []byte) {
 		// Insert message_active
 		// Insert message_expire
 		// Return data
-	case common.CMD_INTERNAL_TICK:
-		var req = &internal.TickRequest{}
+	case lib.CMD_INTERNAL_TICK:
+		var req = &pb.TickRequest{}
 		if err = req.UnmarshalVT(cmd[:len(cmd)-1]); err != nil {
 			data = []byte(`Invalid command: ` + string(cmd))
 			return
@@ -106,15 +106,15 @@ func update(index uint64, cmd []byte) (value uint64, data []byte) {
 		}
 		// message recycle
 		// message expire
-		data, err = (&internal.TickResponse{
+		data, err = (&pb.TickResponse{
 			Epoch: epoch,
 		}).MarshalVT()
 		if err != nil {
 			panic(`Unable to marshal response: ` + err.Error())
 		}
 		value = index
-	case common.CMD_INTERNAL_TERM:
-		var req = &internal.TermRequest{}
+	case lib.CMD_INTERNAL_TERM:
+		var req = &pb.TermRequest{}
 		if err = req.UnmarshalVT(cmd[:len(cmd)-1]); err != nil {
 			data = []byte(`Invalid command: ` + string(cmd))
 			return
@@ -130,7 +130,7 @@ func update(index uint64, cmd []byte) (value uint64, data []byte) {
 		if err = dbMeta.setTerm(txn, req.Term); err != nil {
 			panic(`Unable to set term: ` + err.Error())
 		}
-		data, err = (&internal.TermResponse{}).MarshalVT()
+		data, err = (&pb.TermResponse{}).MarshalVT()
 		if err != nil {
 			panic(`Unable to marshal response: ` + err.Error())
 		}
@@ -153,16 +153,16 @@ func finish() {
 
 func read(query []byte) (value uint64, data []byte) {
 	switch query[len(query)-1] {
-	case common.QUERY_QUEUE_LIST:
+	case lib.QUERY_QUEUE_LIST:
 		// Scan queues
 		// Return list of queues
-	case common.QUERY_QUEUE_URL:
+	case lib.QUERY_QUEUE_URL:
 		// Find queue
 		// Return queue url
-	case common.QUERY_QUEUE_ATTRIBUTES:
+	case lib.QUERY_QUEUE_ATTRIBUTES:
 		// Find queue
 		// Return queue attributes
-	case common.QUERY_QUEUE_DEAD_LETTER_SOURCE:
+	case lib.QUERY_QUEUE_DEAD_LETTER_SOURCE:
 		// Find queue
 		// Return queue dead letter sources
 	}

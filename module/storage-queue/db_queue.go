@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/pantopic/ext-mdb/sdk-go"
 
-	"github.com/pantopic/kitsune/module/common"
+	"github.com/pantopic/kitsune/module/lib"
 )
 
 type queue struct {
@@ -32,7 +32,7 @@ func (db dbQueueImpl) create(
 		err = ErrQueueNameRequired
 		return
 	}
-	if len(name) > int(common.MAX_QUEUE_NAME_LEN()) {
+	if len(name) > int(lib.MAX_QUEUE_NAME_LEN()) {
 		err = ErrQueueNameTooLong
 		return
 	}
