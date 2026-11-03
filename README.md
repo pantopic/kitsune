@@ -1,6 +1,6 @@
 # Kitsune
 
-<img alt="Kitsune" title="Kitsune" src="https://github.com/user-attachments/assets/8afdec9f-031c-44de-aaea-c5e259366a6e" align="right" width="360" />
+<img alt="Kitsune" title="Kitsune" src="https://github.com/user-attachments/assets/ce7d184f-d6c1-43ff-8ab7-5c154266846c" align="right" width="360" />
 
 A distributed queue that's mostly API compatible with [SQS](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/Welcome.html).
 
