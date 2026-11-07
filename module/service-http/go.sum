@@ -1,12 +1,8 @@
+github.com/aperturerobotics/protobuf-go-lite v0.19.0 h1:7Veh1XY7pkswacItBnTR+skvPyNIFdOPg0tb3X0Yd/E=
+github.com/aperturerobotics/protobuf-go-lite v0.19.0/go.mod h1:3Ay/E7iaw2KWLirK3+dDdNJZHK0hu8Y1/kKeYeUa+8s=
 github.com/pantopic/ext-http-server/sdk-go v0.0.0-20261022031028-b06e5d1953d6 h1:76dcmhfsABz62knL34iT5T6b9ZsjG+C3/MWlo6O8TgM=
 github.com/pantopic/ext-http-server/sdk-go v0.0.0-20261022031028-b06e5d1953d6/go.mod h1:97BUJE8gVkzObiSZ3wUhpkHdHiEKECaHBvZtyW2dG2Q=
-github.com/pantopic/ext-shard-client/sdk-go v0.0.4 h1:rcJYkiZTsC+1YzXPh42kGbDIXy7A3+vdoCU5N/wkOxM=
-github.com/pantopic/ext-shard-client/sdk-go v0.0.4/go.mod h1:c2Duo6U63dbZgWQckX3fu8NLd+CMjgX9vaOur8I4q3Q=
+github.com/pantopic/ext-shard-client/sdk-go v0.0.5 h1:3WiLLE5YCAKfYecQm/n9FRkHu/0rNjnsk/nRs56j6Wo=
+github.com/pantopic/ext-shard-client/sdk-go v0.0.5/go.mod h1:c2Duo6U63dbZgWQckX3fu8NLd+CMjgX9vaOur8I4q3Q=
 github.com/pantopic/kitsune/module/pkg v0.0.0-20261102173909-47dd4eaf50c9 h1:qFGKEEyvXsrGnFGl2CTw35eBhE1ZV7DjlLXxib5Qvx4=
 github.com/pantopic/kitsune/module/pkg v0.0.0-20261102173909-47dd4eaf50c9/go.mod h1:+E0g2e4kTJE2v6+oBiVX0euBcaFRurKpkmS8xendZg8=
-github.com/tidwall/gjson v1.20.0 h1:+agJ3rEzKcCXKDKo0ml26UROcpcAlnZyjq+TjbY5Fto=
-github.com/tidwall/gjson v1.20.0/go.mod h1:V37/opeE/JbLUOfH0QTXiNez2l0RUjYUhpT4szFQAfc=
-github.com/tidwall/match v1.1.1 h1:+Ho715JplO36QYgwN9PGYNhgZvoUSc9X2c80KVTi+GA=
-github.com/tidwall/match v1.1.1/go.mod h1:eRSPERbgtNPcGhD8UCthc6PmLEQXEWd3PRB5JTxsfmM=
-github.com/tidwall/pretty v1.2.0 h1:RWIZEg2iJ8/g6fDDYzMpobmaoGh5OLl4AXtGUGPcqCs=
-github.com/tidwall/pretty v1.2.0/go.mod h1:ITEVvHYasfjBbM0u2Pg8T2nJnzm8xPwvNhhsoaGGjNU=

@@ -45,12 +45,12 @@ cloc-wasm:
 gen: gen-lite
 
 gen-lite:
-	@mkdir -p module/lib/pb
+	@mkdir -p module/pkg/pb
 	@protoc internal.proto \
 		--plugin protoc-gen-go-lite="${GOBIN}/protoc-gen-go-lite" \
-		--go-lite_out=module/lib/pb  \
+		--go-lite_out=module/pkg/pb  \
 		--go-lite_opt=paths=source_relative \
-		--go-lite_opt=features=marshal+unmarshal+size \
+		--go-lite_opt=features=marshal+unmarshal+size+json \
 		-I .
 
 gen-lite-install:
@@ -64,10 +64,12 @@ wasm-service-http:
 	cd module/service-http && tinygo build -buildmode=wasi-legacy -target=wasi -opt=s -gc=leaking -scheduler=none -o ../../embed/service-http.wasm -no-debug
 wasm-service-http-dev:
 	cd module/service-http && tinygo build -buildmode=wasi-legacy -target=wasi -opt=2 -gc=leaking -scheduler=none -o ../../embed/service-http.dev.wasm
-wasm-dev: wasm-storage-queue-dev wasm-service-http-dev
-wasm-prod: wasm-storage-queue wasm-service-http
-wasm-storage: wasm-storage-queue wasm-storage-queue-dev
-wasm-service: wasm-service-http wasm-service-http-dev
+wasm-control-basic:
+	cd module/control-basic && tinygo build -buildmode=wasi-legacy -target=wasi -opt=s -gc=leaking -scheduler=none -o ../../embed/control-basic.wasm -no-debug
+wasm-control-basic-dev:
+	cd module/control-basic && tinygo build -buildmode=wasi-legacy -target=wasi -opt=2 -gc=leaking -scheduler=none -o ../../embed/control-basic.dev.wasm
+wasm-dev: wasm-storage-queue-dev wasm-service-http-dev wasm-control-basic-dev
+wasm-prod: wasm-storage-queue wasm-service-http wasm-control-basic
 wasm-go: wasm-dev wasm-prod
 
 wasm: wasm-go
@@ -77,5 +79,6 @@ work:
 	go work use module/lib
 	go work use module/service-http
 	go work use module/storage-queue
+	go work use module/control-basic
 
 .PHONY: test

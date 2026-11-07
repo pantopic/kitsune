@@ -1,16 +1,17 @@
 package main
 
 import (
-	"github.com/tidwall/gjson"
-
 	"github.com/pantopic/ext-http-server/sdk-go"
 	"github.com/pantopic/ext-shard-client/sdk-go"
 
+	"github.com/pantopic/kitsune/module/pkg/pb"
 	"github.com/pantopic/kitsune/module/pkg/query"
 )
 
 var (
-	bodyBuf = make([]byte, 1<<20)
+	bodyBuf       = make([]byte, 1<<20)
+	request       = &pb.Request{}
+	reqListQueues = &pb.ListQueuesRequest{}
 )
 
 func init() {
@@ -34,19 +35,34 @@ func httpHandler(method, path []byte) {
 			return
 		}
 		body := http_server.BodyRead(bodyBuf)
-		action := gjson.GetBytes(body, "Action").String()
-		switch action {
+		if err := request.UnmarshalJSON(body); err != nil {
+			http_server.Send(400, []byte(err.Error()))
+			return
+		}
+		switch request.Action {
 		case "ListQueues":
-			// maxResults := gjson.GetBytes(body, "MaxResults").Int()
-			// nextToken := gjson.GetBytes(body, "NextToken").String()
-			// queueNamePrefix := gjson.GetBytes(body, "QueueNamePrefix").String()
-			http_server.Send(200, []byte(`results`))
+			if err := reqListQueues.UnmarshalJSON(body); err != nil {
+				http_server.Send(400, []byte(err.Error()))
+				return
+			}
+			b, err := reqListQueues.MarshalVT()
+			if err != nil {
+				http_server.Send(500, []byte(err.Error()))
+				return
+			}
+			if err := queueShard().ReadAsync([]byte(request.Action), append(b, query.QUEUE_LIST), false); err != nil {
+				http_server.Send(500, []byte(err.Error()))
+				return
+			}
 		default:
 			http_server.Send(400, []byte(`invalid action`))
 			return
 		}
 	case "/health":
-		queueShard().ReadAsync([]byte(`health`), []byte{query.HEALTH_CHECK}, true)
+		if err := queueShard().ReadAsync([]byte(`health`), []byte{query.HEALTH_CHECK}, false); err != nil {
+			http_server.Send(500, []byte(err.Error()))
+			return
+		}
 	default:
 		http_server.Send(404, []byte(`not found`))
 	}
@@ -59,6 +75,12 @@ func asyncRecv(name, data []byte, val uint64, err error) {
 	}
 	switch string(name) {
 	case "health":
+		if val == 0 {
+			http_server.Send(500, []byte(`Invalid response code`))
+			return
+		}
+		http_server.Send(int(val), data)
+	case "ListQueues":
 		http_server.Send(int(val), data)
 	default:
 		panic("unknown asyncRecv name: " + string(name))

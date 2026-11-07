@@ -55,6 +55,9 @@ var (
 	// MAX_QUEUE_NAME_LEN is the maximum allowed length for queue names.
 	MAX_QUEUE_NAME_LEN = global.NewUint64(`MAX_QUEUE_NAME_LEN`, 80)
 
+	// MAX_QUEUE_LIST_RESULTS is the maximum allowed number of results in a queue list.
+	MAX_QUEUE_LIST_RESULTS = global.NewUint64(`MAX_QUEUE_LIST_RESULTS`, 1000)
+
 	// MAX_TAG_KEY_LEN is the maximum allowed length for tag keys.
 	MAX_TAG_KEY_LEN = global.NewUint64(`MAX_TAG_KEY_LEN`, 128)
 

@@ -7,6 +7,7 @@ package pb
 import (
 	fmt "fmt"
 	protobuf_go_lite "github.com/aperturerobotics/protobuf-go-lite"
+	json "github.com/aperturerobotics/protobuf-go-lite/json"
 	io "io"
 )
 
@@ -73,6 +74,724 @@ func (x *TermResponse) Reset() {
 }
 
 func (*TermResponse) ProtoMessage() {}
+
+type Request struct {
+	unknownFields []byte
+	Action        string `protobuf:"bytes,1,opt,name=Action,proto3" json:"Action,omitempty"`
+}
+
+func (x *Request) Reset() {
+	*x = Request{}
+}
+
+func (*Request) ProtoMessage() {}
+
+func (x *Request) GetAction() string {
+	if x != nil {
+		return x.Action
+	}
+	return ""
+}
+
+type ListQueuesRequest struct {
+	unknownFields   []byte
+	MaxResults      uint64 `protobuf:"varint,1,opt,name=MaxResults,proto3" json:"MaxResults,omitempty"`
+	NextToken       string `protobuf:"bytes,2,opt,name=NextToken,proto3" json:"NextToken,omitempty"`
+	QueueNamePrefix string `protobuf:"bytes,3,opt,name=QueueNamePrefix,proto3" json:"QueueNamePrefix,omitempty"`
+}
+
+func (x *ListQueuesRequest) Reset() {
+	*x = ListQueuesRequest{}
+}
+
+func (*ListQueuesRequest) ProtoMessage() {}
+
+func (x *ListQueuesRequest) GetMaxResults() uint64 {
+	if x != nil {
+		return x.MaxResults
+	}
+	return 0
+}
+
+func (x *ListQueuesRequest) GetNextToken() string {
+	if x != nil {
+		return x.NextToken
+	}
+	return ""
+}
+
+func (x *ListQueuesRequest) GetQueueNamePrefix() string {
+	if x != nil {
+		return x.QueueNamePrefix
+	}
+	return ""
+}
+
+type ListQueuesResponse struct {
+	unknownFields []byte
+	QueueUrls     []string `protobuf:"bytes,1,rep,name=QueueUrls,proto3" json:"QueueUrls,omitempty"`
+	NextToken     string   `protobuf:"bytes,2,opt,name=NextToken,proto3" json:"NextToken,omitempty"`
+}
+
+func (x *ListQueuesResponse) Reset() {
+	*x = ListQueuesResponse{}
+}
+
+func (*ListQueuesResponse) ProtoMessage() {}
+
+func (x *ListQueuesResponse) GetQueueUrls() []string {
+	if x != nil {
+		return x.QueueUrls
+	}
+	return nil
+}
+
+func (x *ListQueuesResponse) GetNextToken() string {
+	if x != nil {
+		return x.NextToken
+	}
+	return ""
+}
+
+type CreateQueueRequest struct {
+	unknownFields []byte
+	QueueName     string `protobuf:"bytes,1,opt,name=QueueName,proto3" json:"QueueName,omitempty"`
+}
+
+func (x *CreateQueueRequest) Reset() {
+	*x = CreateQueueRequest{}
+}
+
+func (*CreateQueueRequest) ProtoMessage() {}
+
+func (x *CreateQueueRequest) GetQueueName() string {
+	if x != nil {
+		return x.QueueName
+	}
+	return ""
+}
+
+type CreateQueueResponse struct {
+	unknownFields []byte
+	QueueUrl      string `protobuf:"bytes,1,opt,name=QueueUrl,proto3" json:"QueueUrl,omitempty"`
+}
+
+func (x *CreateQueueResponse) Reset() {
+	*x = CreateQueueResponse{}
+}
+
+func (*CreateQueueResponse) ProtoMessage() {}
+
+func (x *CreateQueueResponse) GetQueueUrl() string {
+	if x != nil {
+		return x.QueueUrl
+	}
+	return ""
+}
+
+type GetQueueAttributesRequest struct {
+	unknownFields []byte
+	QueueUrl      string `protobuf:"bytes,1,opt,name=QueueUrl,proto3" json:"QueueUrl,omitempty"`
+}
+
+func (x *GetQueueAttributesRequest) Reset() {
+	*x = GetQueueAttributesRequest{}
+}
+
+func (*GetQueueAttributesRequest) ProtoMessage() {}
+
+func (x *GetQueueAttributesRequest) GetQueueUrl() string {
+	if x != nil {
+		return x.QueueUrl
+	}
+	return ""
+}
+
+type GetQueueAttributesResponse struct {
+	unknownFields []byte
+	Attributes    map[string]string `protobuf:"bytes,1,rep,name=Attributes,proto3" json:"Attributes,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+}
+
+func (x *GetQueueAttributesResponse) Reset() {
+	*x = GetQueueAttributesResponse{}
+}
+
+func (*GetQueueAttributesResponse) ProtoMessage() {}
+
+func (x *GetQueueAttributesResponse) GetAttributes() map[string]string {
+	if x != nil {
+		return x.Attributes
+	}
+	return nil
+}
+
+type GetQueueAttributesResponse_AttributesEntry struct {
+	unknownFields []byte
+	Key           string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Value         string `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+}
+
+func (x *GetQueueAttributesResponse_AttributesEntry) Reset() {
+	*x = GetQueueAttributesResponse_AttributesEntry{}
+}
+
+func (*GetQueueAttributesResponse_AttributesEntry) ProtoMessage() {}
+
+func (x *GetQueueAttributesResponse_AttributesEntry) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *GetQueueAttributesResponse_AttributesEntry) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+// MarshalProtoJSON marshals the TickRequest message to JSON.
+func (x *TickRequest) MarshalProtoJSON(s *json.MarshalState) {
+	if x == nil {
+		s.WriteNil()
+		return
+	}
+	s.WriteObjectStart()
+	var wroteField bool
+	if x.Term != 0 || s.HasField("term") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("term")
+		s.WriteUint64(x.Term)
+	}
+	s.WriteObjectEnd()
+}
+
+// MarshalJSON marshals the TickRequest to JSON.
+func (x *TickRequest) MarshalJSON() ([]byte, error) {
+	return json.DefaultMarshalerConfig.Marshal(x)
+}
+
+// UnmarshalProtoJSON unmarshals the TickRequest message from JSON.
+func (x *TickRequest) UnmarshalProtoJSON(s *json.UnmarshalState) {
+	if s.ReadNil() {
+		return
+	}
+	s.ReadObject(func(key string) {
+		switch key {
+		default:
+			s.Skip() // ignore unknown field
+		case "term":
+			s.AddField("term")
+			x.Term = s.ReadUint64()
+		}
+	})
+}
+
+// UnmarshalJSON unmarshals the TickRequest from JSON.
+func (x *TickRequest) UnmarshalJSON(b []byte) error {
+	return json.DefaultUnmarshalerConfig.Unmarshal(b, x)
+}
+
+// MarshalProtoJSON marshals the TickResponse message to JSON.
+func (x *TickResponse) MarshalProtoJSON(s *json.MarshalState) {
+	if x == nil {
+		s.WriteNil()
+		return
+	}
+	s.WriteObjectStart()
+	var wroteField bool
+	if x.Epoch != 0 || s.HasField("epoch") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("epoch")
+		s.WriteUint64(x.Epoch)
+	}
+	s.WriteObjectEnd()
+}
+
+// MarshalJSON marshals the TickResponse to JSON.
+func (x *TickResponse) MarshalJSON() ([]byte, error) {
+	return json.DefaultMarshalerConfig.Marshal(x)
+}
+
+// UnmarshalProtoJSON unmarshals the TickResponse message from JSON.
+func (x *TickResponse) UnmarshalProtoJSON(s *json.UnmarshalState) {
+	if s.ReadNil() {
+		return
+	}
+	s.ReadObject(func(key string) {
+		switch key {
+		default:
+			s.Skip() // ignore unknown field
+		case "epoch":
+			s.AddField("epoch")
+			x.Epoch = s.ReadUint64()
+		}
+	})
+}
+
+// UnmarshalJSON unmarshals the TickResponse from JSON.
+func (x *TickResponse) UnmarshalJSON(b []byte) error {
+	return json.DefaultUnmarshalerConfig.Unmarshal(b, x)
+}
+
+// MarshalProtoJSON marshals the TermRequest message to JSON.
+func (x *TermRequest) MarshalProtoJSON(s *json.MarshalState) {
+	if x == nil {
+		s.WriteNil()
+		return
+	}
+	s.WriteObjectStart()
+	var wroteField bool
+	if x.Term != 0 || s.HasField("term") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("term")
+		s.WriteUint64(x.Term)
+	}
+	s.WriteObjectEnd()
+}
+
+// MarshalJSON marshals the TermRequest to JSON.
+func (x *TermRequest) MarshalJSON() ([]byte, error) {
+	return json.DefaultMarshalerConfig.Marshal(x)
+}
+
+// UnmarshalProtoJSON unmarshals the TermRequest message from JSON.
+func (x *TermRequest) UnmarshalProtoJSON(s *json.UnmarshalState) {
+	if s.ReadNil() {
+		return
+	}
+	s.ReadObject(func(key string) {
+		switch key {
+		default:
+			s.Skip() // ignore unknown field
+		case "term":
+			s.AddField("term")
+			x.Term = s.ReadUint64()
+		}
+	})
+}
+
+// UnmarshalJSON unmarshals the TermRequest from JSON.
+func (x *TermRequest) UnmarshalJSON(b []byte) error {
+	return json.DefaultUnmarshalerConfig.Unmarshal(b, x)
+}
+
+// MarshalProtoJSON marshals the TermResponse message to JSON.
+func (x *TermResponse) MarshalProtoJSON(s *json.MarshalState) {
+	if x == nil {
+		s.WriteNil()
+		return
+	}
+	s.WriteObjectStart()
+	s.WriteObjectEnd()
+}
+
+// MarshalJSON marshals the TermResponse to JSON.
+func (x *TermResponse) MarshalJSON() ([]byte, error) {
+	return json.DefaultMarshalerConfig.Marshal(x)
+}
+
+// UnmarshalProtoJSON unmarshals the TermResponse message from JSON.
+func (x *TermResponse) UnmarshalProtoJSON(s *json.UnmarshalState) {
+	if s.ReadNil() {
+		return
+	}
+	s.ReadObject(func(key string) {
+		// no fields
+	})
+}
+
+// UnmarshalJSON unmarshals the TermResponse from JSON.
+func (x *TermResponse) UnmarshalJSON(b []byte) error {
+	return json.DefaultUnmarshalerConfig.Unmarshal(b, x)
+}
+
+// MarshalProtoJSON marshals the Request message to JSON.
+func (x *Request) MarshalProtoJSON(s *json.MarshalState) {
+	if x == nil {
+		s.WriteNil()
+		return
+	}
+	s.WriteObjectStart()
+	var wroteField bool
+	if x.Action != "" || s.HasField("Action") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("Action")
+		s.WriteString(x.Action)
+	}
+	s.WriteObjectEnd()
+}
+
+// MarshalJSON marshals the Request to JSON.
+func (x *Request) MarshalJSON() ([]byte, error) {
+	return json.DefaultMarshalerConfig.Marshal(x)
+}
+
+// UnmarshalProtoJSON unmarshals the Request message from JSON.
+func (x *Request) UnmarshalProtoJSON(s *json.UnmarshalState) {
+	if s.ReadNil() {
+		return
+	}
+	s.ReadObject(func(key string) {
+		switch key {
+		default:
+			s.Skip() // ignore unknown field
+		case "Action":
+			s.AddField("Action")
+			x.Action = s.ReadString()
+		}
+	})
+}
+
+// UnmarshalJSON unmarshals the Request from JSON.
+func (x *Request) UnmarshalJSON(b []byte) error {
+	return json.DefaultUnmarshalerConfig.Unmarshal(b, x)
+}
+
+// MarshalProtoJSON marshals the ListQueuesRequest message to JSON.
+func (x *ListQueuesRequest) MarshalProtoJSON(s *json.MarshalState) {
+	if x == nil {
+		s.WriteNil()
+		return
+	}
+	s.WriteObjectStart()
+	var wroteField bool
+	if x.MaxResults != 0 || s.HasField("MaxResults") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("MaxResults")
+		s.WriteUint64(x.MaxResults)
+	}
+	if x.NextToken != "" || s.HasField("NextToken") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("NextToken")
+		s.WriteString(x.NextToken)
+	}
+	if x.QueueNamePrefix != "" || s.HasField("QueueNamePrefix") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("QueueNamePrefix")
+		s.WriteString(x.QueueNamePrefix)
+	}
+	s.WriteObjectEnd()
+}
+
+// MarshalJSON marshals the ListQueuesRequest to JSON.
+func (x *ListQueuesRequest) MarshalJSON() ([]byte, error) {
+	return json.DefaultMarshalerConfig.Marshal(x)
+}
+
+// UnmarshalProtoJSON unmarshals the ListQueuesRequest message from JSON.
+func (x *ListQueuesRequest) UnmarshalProtoJSON(s *json.UnmarshalState) {
+	if s.ReadNil() {
+		return
+	}
+	s.ReadObject(func(key string) {
+		switch key {
+		default:
+			s.Skip() // ignore unknown field
+		case "MaxResults":
+			s.AddField("MaxResults")
+			x.MaxResults = s.ReadUint64()
+		case "NextToken":
+			s.AddField("NextToken")
+			x.NextToken = s.ReadString()
+		case "QueueNamePrefix":
+			s.AddField("QueueNamePrefix")
+			x.QueueNamePrefix = s.ReadString()
+		}
+	})
+}
+
+// UnmarshalJSON unmarshals the ListQueuesRequest from JSON.
+func (x *ListQueuesRequest) UnmarshalJSON(b []byte) error {
+	return json.DefaultUnmarshalerConfig.Unmarshal(b, x)
+}
+
+// MarshalProtoJSON marshals the ListQueuesResponse message to JSON.
+func (x *ListQueuesResponse) MarshalProtoJSON(s *json.MarshalState) {
+	if x == nil {
+		s.WriteNil()
+		return
+	}
+	s.WriteObjectStart()
+	var wroteField bool
+	if len(x.QueueUrls) > 0 || s.HasField("QueueUrls") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("QueueUrls")
+		s.WriteStringArray(x.QueueUrls)
+	}
+	if x.NextToken != "" || s.HasField("NextToken") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("NextToken")
+		s.WriteString(x.NextToken)
+	}
+	s.WriteObjectEnd()
+}
+
+// MarshalJSON marshals the ListQueuesResponse to JSON.
+func (x *ListQueuesResponse) MarshalJSON() ([]byte, error) {
+	return json.DefaultMarshalerConfig.Marshal(x)
+}
+
+// UnmarshalProtoJSON unmarshals the ListQueuesResponse message from JSON.
+func (x *ListQueuesResponse) UnmarshalProtoJSON(s *json.UnmarshalState) {
+	if s.ReadNil() {
+		return
+	}
+	s.ReadObject(func(key string) {
+		switch key {
+		default:
+			s.Skip() // ignore unknown field
+		case "QueueUrls":
+			s.AddField("QueueUrls")
+			if s.ReadNil() {
+				x.QueueUrls = nil
+				return
+			}
+			x.QueueUrls = s.ReadStringArray()
+		case "NextToken":
+			s.AddField("NextToken")
+			x.NextToken = s.ReadString()
+		}
+	})
+}
+
+// UnmarshalJSON unmarshals the ListQueuesResponse from JSON.
+func (x *ListQueuesResponse) UnmarshalJSON(b []byte) error {
+	return json.DefaultUnmarshalerConfig.Unmarshal(b, x)
+}
+
+// MarshalProtoJSON marshals the CreateQueueRequest message to JSON.
+func (x *CreateQueueRequest) MarshalProtoJSON(s *json.MarshalState) {
+	if x == nil {
+		s.WriteNil()
+		return
+	}
+	s.WriteObjectStart()
+	var wroteField bool
+	if x.QueueName != "" || s.HasField("QueueName") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("QueueName")
+		s.WriteString(x.QueueName)
+	}
+	s.WriteObjectEnd()
+}
+
+// MarshalJSON marshals the CreateQueueRequest to JSON.
+func (x *CreateQueueRequest) MarshalJSON() ([]byte, error) {
+	return json.DefaultMarshalerConfig.Marshal(x)
+}
+
+// UnmarshalProtoJSON unmarshals the CreateQueueRequest message from JSON.
+func (x *CreateQueueRequest) UnmarshalProtoJSON(s *json.UnmarshalState) {
+	if s.ReadNil() {
+		return
+	}
+	s.ReadObject(func(key string) {
+		switch key {
+		default:
+			s.Skip() // ignore unknown field
+		case "QueueName":
+			s.AddField("QueueName")
+			x.QueueName = s.ReadString()
+		}
+	})
+}
+
+// UnmarshalJSON unmarshals the CreateQueueRequest from JSON.
+func (x *CreateQueueRequest) UnmarshalJSON(b []byte) error {
+	return json.DefaultUnmarshalerConfig.Unmarshal(b, x)
+}
+
+// MarshalProtoJSON marshals the CreateQueueResponse message to JSON.
+func (x *CreateQueueResponse) MarshalProtoJSON(s *json.MarshalState) {
+	if x == nil {
+		s.WriteNil()
+		return
+	}
+	s.WriteObjectStart()
+	var wroteField bool
+	if x.QueueUrl != "" || s.HasField("QueueUrl") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("QueueUrl")
+		s.WriteString(x.QueueUrl)
+	}
+	s.WriteObjectEnd()
+}
+
+// MarshalJSON marshals the CreateQueueResponse to JSON.
+func (x *CreateQueueResponse) MarshalJSON() ([]byte, error) {
+	return json.DefaultMarshalerConfig.Marshal(x)
+}
+
+// UnmarshalProtoJSON unmarshals the CreateQueueResponse message from JSON.
+func (x *CreateQueueResponse) UnmarshalProtoJSON(s *json.UnmarshalState) {
+	if s.ReadNil() {
+		return
+	}
+	s.ReadObject(func(key string) {
+		switch key {
+		default:
+			s.Skip() // ignore unknown field
+		case "QueueUrl":
+			s.AddField("QueueUrl")
+			x.QueueUrl = s.ReadString()
+		}
+	})
+}
+
+// UnmarshalJSON unmarshals the CreateQueueResponse from JSON.
+func (x *CreateQueueResponse) UnmarshalJSON(b []byte) error {
+	return json.DefaultUnmarshalerConfig.Unmarshal(b, x)
+}
+
+// MarshalProtoJSON marshals the GetQueueAttributesRequest message to JSON.
+func (x *GetQueueAttributesRequest) MarshalProtoJSON(s *json.MarshalState) {
+	if x == nil {
+		s.WriteNil()
+		return
+	}
+	s.WriteObjectStart()
+	var wroteField bool
+	if x.QueueUrl != "" || s.HasField("QueueUrl") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("QueueUrl")
+		s.WriteString(x.QueueUrl)
+	}
+	s.WriteObjectEnd()
+}
+
+// MarshalJSON marshals the GetQueueAttributesRequest to JSON.
+func (x *GetQueueAttributesRequest) MarshalJSON() ([]byte, error) {
+	return json.DefaultMarshalerConfig.Marshal(x)
+}
+
+// UnmarshalProtoJSON unmarshals the GetQueueAttributesRequest message from JSON.
+func (x *GetQueueAttributesRequest) UnmarshalProtoJSON(s *json.UnmarshalState) {
+	if s.ReadNil() {
+		return
+	}
+	s.ReadObject(func(key string) {
+		switch key {
+		default:
+			s.Skip() // ignore unknown field
+		case "QueueUrl":
+			s.AddField("QueueUrl")
+			x.QueueUrl = s.ReadString()
+		}
+	})
+}
+
+// UnmarshalJSON unmarshals the GetQueueAttributesRequest from JSON.
+func (x *GetQueueAttributesRequest) UnmarshalJSON(b []byte) error {
+	return json.DefaultUnmarshalerConfig.Unmarshal(b, x)
+}
+
+// MarshalProtoJSON marshals the GetQueueAttributesResponse_AttributesEntry message to JSON.
+func (x *GetQueueAttributesResponse_AttributesEntry) MarshalProtoJSON(s *json.MarshalState) {
+	if x == nil {
+		s.WriteNil()
+		return
+	}
+	s.WriteObjectStart()
+	var wroteField bool
+	if x.Key != "" || s.HasField("key") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("key")
+		s.WriteString(x.Key)
+	}
+	if x.Value != "" || s.HasField("value") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("value")
+		s.WriteString(x.Value)
+	}
+	s.WriteObjectEnd()
+}
+
+// MarshalJSON marshals the GetQueueAttributesResponse_AttributesEntry to JSON.
+func (x *GetQueueAttributesResponse_AttributesEntry) MarshalJSON() ([]byte, error) {
+	return json.DefaultMarshalerConfig.Marshal(x)
+}
+
+// UnmarshalProtoJSON unmarshals the GetQueueAttributesResponse_AttributesEntry message from JSON.
+func (x *GetQueueAttributesResponse_AttributesEntry) UnmarshalProtoJSON(s *json.UnmarshalState) {
+	if s.ReadNil() {
+		return
+	}
+	s.ReadObject(func(key string) {
+		switch key {
+		default:
+			s.Skip() // ignore unknown field
+		case "key":
+			s.AddField("key")
+			x.Key = s.ReadString()
+		case "value":
+			s.AddField("value")
+			x.Value = s.ReadString()
+		}
+	})
+}
+
+// UnmarshalJSON unmarshals the GetQueueAttributesResponse_AttributesEntry from JSON.
+func (x *GetQueueAttributesResponse_AttributesEntry) UnmarshalJSON(b []byte) error {
+	return json.DefaultUnmarshalerConfig.Unmarshal(b, x)
+}
+
+// MarshalProtoJSON marshals the GetQueueAttributesResponse message to JSON.
+func (x *GetQueueAttributesResponse) MarshalProtoJSON(s *json.MarshalState) {
+	if x == nil {
+		s.WriteNil()
+		return
+	}
+	s.WriteObjectStart()
+	var wroteField bool
+	if x.Attributes != nil || s.HasField("Attributes") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("Attributes")
+		s.WriteObjectStart()
+		var wroteElement bool
+		for k, v := range x.Attributes {
+			s.WriteMoreIf(&wroteElement)
+			s.WriteObjectStringField(k)
+			s.WriteString(v)
+		}
+		s.WriteObjectEnd()
+	}
+	s.WriteObjectEnd()
+}
+
+// MarshalJSON marshals the GetQueueAttributesResponse to JSON.
+func (x *GetQueueAttributesResponse) MarshalJSON() ([]byte, error) {
+	return json.DefaultMarshalerConfig.Marshal(x)
+}
+
+// UnmarshalProtoJSON unmarshals the GetQueueAttributesResponse message from JSON.
+func (x *GetQueueAttributesResponse) UnmarshalProtoJSON(s *json.UnmarshalState) {
+	if s.ReadNil() {
+		return
+	}
+	s.ReadObject(func(key string) {
+		switch key {
+		default:
+			s.Skip() // ignore unknown field
+		case "Attributes":
+			s.AddField("Attributes")
+			if s.ReadNil() {
+				x.Attributes = nil
+				return
+			}
+			x.Attributes = make(map[string]string)
+			s.ReadStringMap(func(key string) {
+				x.Attributes[key] = s.ReadString()
+			})
+		}
+	})
+}
+
+// UnmarshalJSON unmarshals the GetQueueAttributesResponse from JSON.
+func (x *GetQueueAttributesResponse) UnmarshalJSON(b []byte) error {
+	return json.DefaultUnmarshalerConfig.Unmarshal(b, x)
+}
 
 func (m *TickRequest) MarshalVT() (dAtA []byte, err error) {
 	if m == nil {
@@ -217,6 +936,292 @@ func (m *TermResponse) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *Request) MarshalVT() (dAtA []byte, err error) {
+	if m == nil {
+		return nil, nil
+	}
+	size := m.SizeVT()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBufferVT(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Request) MarshalToVT(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVT(dAtA[:size])
+}
+
+func (m *Request) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
+	if m == nil {
+		return 0, nil
+	}
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.unknownFields != nil {
+		i = protobuf_go_lite.EncodeRawBytes(dAtA, i, m.unknownFields)
+	}
+	if len(m.Action) > 0 {
+		i = protobuf_go_lite.EncodeString(dAtA, i, m.Action)
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *ListQueuesRequest) MarshalVT() (dAtA []byte, err error) {
+	if m == nil {
+		return nil, nil
+	}
+	size := m.SizeVT()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBufferVT(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ListQueuesRequest) MarshalToVT(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVT(dAtA[:size])
+}
+
+func (m *ListQueuesRequest) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
+	if m == nil {
+		return 0, nil
+	}
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.unknownFields != nil {
+		i = protobuf_go_lite.EncodeRawBytes(dAtA, i, m.unknownFields)
+	}
+	if len(m.QueueNamePrefix) > 0 {
+		i = protobuf_go_lite.EncodeString(dAtA, i, m.QueueNamePrefix)
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.NextToken) > 0 {
+		i = protobuf_go_lite.EncodeString(dAtA, i, m.NextToken)
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.MaxResults != 0 {
+		i = protobuf_go_lite.EncodeVarint(dAtA, i, uint64(m.MaxResults))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *ListQueuesResponse) MarshalVT() (dAtA []byte, err error) {
+	if m == nil {
+		return nil, nil
+	}
+	size := m.SizeVT()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBufferVT(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ListQueuesResponse) MarshalToVT(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVT(dAtA[:size])
+}
+
+func (m *ListQueuesResponse) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
+	if m == nil {
+		return 0, nil
+	}
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.unknownFields != nil {
+		i = protobuf_go_lite.EncodeRawBytes(dAtA, i, m.unknownFields)
+	}
+	if len(m.NextToken) > 0 {
+		i = protobuf_go_lite.EncodeString(dAtA, i, m.NextToken)
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.QueueUrls) > 0 {
+		for iNdEx := len(m.QueueUrls) - 1; iNdEx >= 0; iNdEx-- {
+			i = protobuf_go_lite.EncodeString(dAtA, i, m.QueueUrls[iNdEx])
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *CreateQueueRequest) MarshalVT() (dAtA []byte, err error) {
+	if m == nil {
+		return nil, nil
+	}
+	size := m.SizeVT()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBufferVT(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *CreateQueueRequest) MarshalToVT(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVT(dAtA[:size])
+}
+
+func (m *CreateQueueRequest) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
+	if m == nil {
+		return 0, nil
+	}
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.unknownFields != nil {
+		i = protobuf_go_lite.EncodeRawBytes(dAtA, i, m.unknownFields)
+	}
+	if len(m.QueueName) > 0 {
+		i = protobuf_go_lite.EncodeString(dAtA, i, m.QueueName)
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *CreateQueueResponse) MarshalVT() (dAtA []byte, err error) {
+	if m == nil {
+		return nil, nil
+	}
+	size := m.SizeVT()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBufferVT(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *CreateQueueResponse) MarshalToVT(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVT(dAtA[:size])
+}
+
+func (m *CreateQueueResponse) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
+	if m == nil {
+		return 0, nil
+	}
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.unknownFields != nil {
+		i = protobuf_go_lite.EncodeRawBytes(dAtA, i, m.unknownFields)
+	}
+	if len(m.QueueUrl) > 0 {
+		i = protobuf_go_lite.EncodeString(dAtA, i, m.QueueUrl)
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *GetQueueAttributesRequest) MarshalVT() (dAtA []byte, err error) {
+	if m == nil {
+		return nil, nil
+	}
+	size := m.SizeVT()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBufferVT(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GetQueueAttributesRequest) MarshalToVT(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVT(dAtA[:size])
+}
+
+func (m *GetQueueAttributesRequest) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
+	if m == nil {
+		return 0, nil
+	}
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.unknownFields != nil {
+		i = protobuf_go_lite.EncodeRawBytes(dAtA, i, m.unknownFields)
+	}
+	if len(m.QueueUrl) > 0 {
+		i = protobuf_go_lite.EncodeString(dAtA, i, m.QueueUrl)
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *GetQueueAttributesResponse) MarshalVT() (dAtA []byte, err error) {
+	if m == nil {
+		return nil, nil
+	}
+	size := m.SizeVT()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBufferVT(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GetQueueAttributesResponse) MarshalToVT(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVT(dAtA[:size])
+}
+
+func (m *GetQueueAttributesResponse) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
+	if m == nil {
+		return 0, nil
+	}
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.unknownFields != nil {
+		i = protobuf_go_lite.EncodeRawBytes(dAtA, i, m.unknownFields)
+	}
+	if len(m.Attributes) > 0 {
+		for k := range m.Attributes {
+			v := m.Attributes[k]
+			baseI := i
+			i = protobuf_go_lite.EncodeString(dAtA, i, v)
+			i--
+			dAtA[i] = 0x12
+			i = protobuf_go_lite.EncodeString(dAtA, i, k)
+			i--
+			dAtA[i] = 0xa
+			i = protobuf_go_lite.EncodeVarint(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
 func (m *TickRequest) SizeVT() (n int) {
 	if m == nil {
 		return 0
@@ -256,6 +1261,91 @@ func (m *TermResponse) SizeVT() (n int) {
 	}
 	var l int
 	_ = l
+	n += len(m.unknownFields)
+	return n
+}
+
+func (m *Request) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	n += protobuf_go_lite.SizeStringNonEmpty(1, m.Action)
+	n += len(m.unknownFields)
+	return n
+}
+
+func (m *ListQueuesRequest) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	n += protobuf_go_lite.SizeVarintNonZero(1, m.MaxResults)
+	n += protobuf_go_lite.SizeStringNonEmpty(1, m.NextToken)
+	n += protobuf_go_lite.SizeStringNonEmpty(1, m.QueueNamePrefix)
+	n += len(m.unknownFields)
+	return n
+}
+
+func (m *ListQueuesResponse) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	n += protobuf_go_lite.SizeStringSlice(1, m.QueueUrls)
+	n += protobuf_go_lite.SizeStringNonEmpty(1, m.NextToken)
+	n += len(m.unknownFields)
+	return n
+}
+
+func (m *CreateQueueRequest) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	n += protobuf_go_lite.SizeStringNonEmpty(1, m.QueueName)
+	n += len(m.unknownFields)
+	return n
+}
+
+func (m *CreateQueueResponse) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	n += protobuf_go_lite.SizeStringNonEmpty(1, m.QueueUrl)
+	n += len(m.unknownFields)
+	return n
+}
+
+func (m *GetQueueAttributesRequest) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	n += protobuf_go_lite.SizeStringNonEmpty(1, m.QueueUrl)
+	n += len(m.unknownFields)
+	return n
+}
+
+func (m *GetQueueAttributesResponse) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	for k, v := range m.Attributes {
+		_ = k
+		_ = v
+		mapEntrySize := protobuf_go_lite.SizeStringValue(1, k) + protobuf_go_lite.SizeStringValue(1, v)
+		n += protobuf_go_lite.SizeMessage(1, mapEntrySize)
+	}
 	n += len(m.unknownFields)
 	return n
 }
@@ -433,6 +1523,431 @@ func (m *TermResponse) UnmarshalVT(dAtA []byte) error {
 			return fmt.Errorf("proto: TermResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := protobuf_go_lite.Skip(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return protobuf_go_lite.ErrInvalidLength
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.unknownFields = append(m.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Request) UnmarshalVT(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	var err error
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		wire, iNdEx, err = protobuf_go_lite.DecodeVarint(dAtA, iNdEx)
+		if err != nil {
+			return err
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Request: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Request: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Action", wireType)
+			}
+			var v string
+			v, iNdEx, err = protobuf_go_lite.DecodeString(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			m.Action = v
+		default:
+			iNdEx = preIndex
+			skippy, err := protobuf_go_lite.Skip(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return protobuf_go_lite.ErrInvalidLength
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.unknownFields = append(m.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ListQueuesRequest) UnmarshalVT(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	var err error
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		wire, iNdEx, err = protobuf_go_lite.DecodeVarint(dAtA, iNdEx)
+		if err != nil {
+			return err
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ListQueuesRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ListQueuesRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field MaxResults", wireType)
+			}
+			m.MaxResults = 0
+			m.MaxResults, iNdEx, err = protobuf_go_lite.DecodeVarint(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NextToken", wireType)
+			}
+			var v string
+			v, iNdEx, err = protobuf_go_lite.DecodeString(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			m.NextToken = v
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field QueueNamePrefix", wireType)
+			}
+			var v string
+			v, iNdEx, err = protobuf_go_lite.DecodeString(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			m.QueueNamePrefix = v
+		default:
+			iNdEx = preIndex
+			skippy, err := protobuf_go_lite.Skip(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return protobuf_go_lite.ErrInvalidLength
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.unknownFields = append(m.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ListQueuesResponse) UnmarshalVT(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	var err error
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		wire, iNdEx, err = protobuf_go_lite.DecodeVarint(dAtA, iNdEx)
+		if err != nil {
+			return err
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ListQueuesResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ListQueuesResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field QueueUrls", wireType)
+			}
+			var v string
+			v, iNdEx, err = protobuf_go_lite.DecodeString(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			m.QueueUrls = append(m.QueueUrls, v)
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NextToken", wireType)
+			}
+			var v string
+			v, iNdEx, err = protobuf_go_lite.DecodeString(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			m.NextToken = v
+		default:
+			iNdEx = preIndex
+			skippy, err := protobuf_go_lite.Skip(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return protobuf_go_lite.ErrInvalidLength
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.unknownFields = append(m.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *CreateQueueRequest) UnmarshalVT(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	var err error
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		wire, iNdEx, err = protobuf_go_lite.DecodeVarint(dAtA, iNdEx)
+		if err != nil {
+			return err
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: CreateQueueRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: CreateQueueRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field QueueName", wireType)
+			}
+			var v string
+			v, iNdEx, err = protobuf_go_lite.DecodeString(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			m.QueueName = v
+		default:
+			iNdEx = preIndex
+			skippy, err := protobuf_go_lite.Skip(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return protobuf_go_lite.ErrInvalidLength
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.unknownFields = append(m.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *CreateQueueResponse) UnmarshalVT(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	var err error
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		wire, iNdEx, err = protobuf_go_lite.DecodeVarint(dAtA, iNdEx)
+		if err != nil {
+			return err
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: CreateQueueResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: CreateQueueResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field QueueUrl", wireType)
+			}
+			var v string
+			v, iNdEx, err = protobuf_go_lite.DecodeString(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			m.QueueUrl = v
+		default:
+			iNdEx = preIndex
+			skippy, err := protobuf_go_lite.Skip(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return protobuf_go_lite.ErrInvalidLength
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.unknownFields = append(m.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GetQueueAttributesRequest) UnmarshalVT(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	var err error
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		wire, iNdEx, err = protobuf_go_lite.DecodeVarint(dAtA, iNdEx)
+		if err != nil {
+			return err
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GetQueueAttributesRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GetQueueAttributesRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field QueueUrl", wireType)
+			}
+			var v string
+			v, iNdEx, err = protobuf_go_lite.DecodeString(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			m.QueueUrl = v
+		default:
+			iNdEx = preIndex
+			skippy, err := protobuf_go_lite.Skip(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return protobuf_go_lite.ErrInvalidLength
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.unknownFields = append(m.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GetQueueAttributesResponse) UnmarshalVT(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	var err error
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		wire, iNdEx, err = protobuf_go_lite.DecodeVarint(dAtA, iNdEx)
+		if err != nil {
+			return err
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GetQueueAttributesResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GetQueueAttributesResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Attributes", wireType)
+			}
+			msgStart, postIndex, err := protobuf_go_lite.DecodeLengthDelimited(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			iNdEx = msgStart
+			if m.Attributes == nil {
+				m.Attributes = make(map[string]string)
+			}
+			var mapkey string
+			var mapvalue string
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				wire, iNdEx, err = protobuf_go_lite.DecodeVarint(dAtA, iNdEx)
+				if err != nil {
+					return err
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					mapkey, iNdEx, err = protobuf_go_lite.DecodeString(dAtA, iNdEx)
+					if err != nil {
+						return err
+					}
+				} else if fieldNum == 2 {
+					mapvalue, iNdEx, err = protobuf_go_lite.DecodeString(dAtA, iNdEx)
+					if err != nil {
+						return err
+					}
+				} else {
+					iNdEx = entryPreIndex
+					iNdEx, err = protobuf_go_lite.SkipWithin(dAtA, iNdEx, postIndex)
+					if err != nil {
+						return err
+					}
+				}
+			}
+			m.Attributes[mapkey] = mapvalue
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := protobuf_go_lite.Skip(dAtA[iNdEx:])

@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package pb;
 
-option go_package = "github.com/pantopic/kitsune/common/lib/pb";
+option go_package = "github.com/pantopic/kitsune/common/pkg/pb";
 
 message TickRequest {
   uint64 term = 1;
@@ -15,4 +15,35 @@ message TermRequest {
   uint64 term = 1;
 }
 message TermResponse {
+}
+
+message Request {
+  string Action = 1;
+}
+
+message ListQueuesRequest {
+  uint64 MaxResults = 1;
+  string NextToken = 2;
+  string QueueNamePrefix = 3;
+}
+
+message ListQueuesResponse {
+  repeated string QueueUrls = 1;
+  string NextToken = 2;
+}
+
+message CreateQueueRequest {
+  string QueueName = 1;
+}
+
+message CreateQueueResponse {
+  string QueueUrl = 1;
+}
+
+message GetQueueAttributesRequest {
+  string QueueUrl = 1;
+}
+
+message GetQueueAttributesResponse {
+  map<string, string> Attributes = 1;
 }

@@ -136,6 +136,8 @@ func update(index uint64, c []byte) (value uint64, data []byte) {
 			panic(`Unable to marshal response: ` + err.Error())
 		}
 		value = index
+	default:
+		return 500, []byte(`invalid cmd`)
 	}
 	return
 }
@@ -153,10 +155,15 @@ func finish() {
 }
 
 func read(q []byte) (val uint64, data []byte) {
-	switch q[len(q)-1] {
+	var code byte
+	if len(q) > 0 {
+		code = q[len(q)-1]
+	}
+	switch code {
 	case query.HEALTH_CHECK:
 		return 200, []byte(`Okay`)
 	case query.QUEUE_LIST:
+		return 200, []byte(`results`)
 		// Scan queues
 		// Return list of queues
 	case query.QUEUE_URL:
@@ -168,6 +175,8 @@ func read(q []byte) (val uint64, data []byte) {
 	case query.QUEUE_DEAD_LETTER_SOURCE:
 		// Find queue
 		// Return queue dead letter sources
+	default:
+		return 400, []byte(`unrecognized query`)
 	}
-	return
+	return 500, []byte(`unreachable`)
 }
