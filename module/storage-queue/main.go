@@ -3,7 +3,6 @@ package main
 import (
 	"github.com/pantopic/ext-mdb/sdk-go"
 	"github.com/pantopic/ext-raft/sdk-go"
-	"github.com/pantopic/ext-range-watch/sdk-go"
 
 	"github.com/pantopic/kitsune/module/pkg/cmd"
 	"github.com/pantopic/kitsune/module/pkg/pb"
@@ -17,7 +16,7 @@ var (
 )
 
 func init() {
-	raft.Persistent(open, update, finish, read)
+	raft.Persistent(open, read, update, commit, abort)
 }
 
 func main() {}
@@ -142,7 +141,7 @@ func update(index uint64, c []byte) (value uint64, data []byte) {
 	return
 }
 
-func finish() {
+func commit() {
 	var err error
 	if err = dbMeta.setIndex(txn, newIndex); err != nil {
 		panic(`Unable to set index: ` + err.Error())
@@ -150,9 +149,10 @@ func finish() {
 	if err := txn.Commit(); err != nil {
 		panic(`Unable to commit transaction: ` + err.Error())
 	}
-	range_watch.Flush()
 	txn = 0
 }
+
+func abort() {}
 
 func read(q []byte) (val uint64, data []byte) {
 	var code byte
