@@ -2,6 +2,8 @@ package kitsune
 
 import (
 	_ "embed"
+
+	"github.com/pantopic/cluster/iface"
 )
 
 const (
@@ -11,42 +13,40 @@ const (
 	Version          = 0
 )
 
-func Register(runtimeService, runtimeStorage, runtimeControl interface {
-	Register(name string, wasm []byte)
-}) {
-	runtimeService.Register(NameServiceHttp, WasmServiceHttp)
-	runtimeStorage.Register(NameStorageQueue, WasmStorageQueue)
-	runtimeControl.Register(NameControlBasic, WasmControlBasic)
+func Register(c pantopic.ModuleRegistry) {
+	c.RegisterService(NameServiceHttp, WasmServiceHttp)
+	c.RegisterStorage(NameStorageQueue, WasmStorageQueue)
+	c.RegisterControl(NameControlBasic, WasmControlBasic)
 }
 
-//go:embed service-http.wasm
+//go:embed wasm/service-http.wasm
 var WasmServiceHttp []byte
 
-//go:embed service-http.dev.wasm
+//go:embed wasm/service-http.dev.wasm
 var WasmServiceHttpDev []byte
 
-//go:embed storage-queue.wasm
+//go:embed wasm/storage-queue.wasm
 var WasmStorageQueue []byte
 
-//go:embed storage-queue.dev.wasm
+//go:embed wasm/storage-queue.dev.wasm
 var WasmStorageQueueDev []byte
 
-//go:embed control-basic.wasm
+//go:embed wasm/control-basic.wasm
 var WasmControlBasic []byte
 
-//go:embed control-basic.dev.wasm
+//go:embed wasm/control-basic.dev.wasm
 var WasmControlBasicDev []byte
 
 /*
-//go:embed service-http.zig.wasm
+//go:embed wasm/service-http.zig.wasm
 var ServiceHttpZigWasm []byte
 
-//go:embed service-http.zig.dev.wasm
+//go:embed wasm/service-http.zig.dev.wasm
 var ServiceHttpZigDevWasm []byte
 
-//go:embed storage-queue.zig.wasm
+//go:embed wasm/storage-queue.zig.wasm
 var StorageQueueZigWasm []byte
 
-//go:embed storage-queue.zig.dev.wasm
+//go:embed wasm/storage-queue.zig.dev.wasm
 var StorageQueueZigDevWasm []byte
 */
