@@ -5,10 +5,10 @@ import (
 )
 
 var (
-	bankName       = []byte(`default`)
+	componentName  = []byte(`default`)
 	shardNameQueue = []byte(`queue`)
 )
 
 func queueShard() shard_client.Client {
-	return shard_client.New(bankName, shardNameQueue)
+	return shard_client.New(componentName, shardNameQueue)
 }

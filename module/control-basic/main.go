@@ -7,15 +7,15 @@ import (
 
 func init() {
 	cluster.Init(
-		cluster.WithBankReconciler(reconcile),
+		cluster.WithComponentReconciler(reconcile),
 	)
 }
 
 func main() {
 }
 
-func reconcile(bank *pb.Bank) uint32 {
-	name := bank.Namespace + `.` + bank.Resource + `.` + bank.Name
+func reconcile(component *pb.Component) uint32 {
+	name := component.Namespace + `.` + component.Resource + `.` + component.Name
 	var found bool
 	var s *pb.Shard
 	for s = range cluster.ShardIter() {
@@ -26,7 +26,7 @@ func reconcile(bank *pb.Bank) uint32 {
 	}
 	if !found {
 		_, err := cluster.ShardCreate(`queue`, `pantopic/kitsune/storage/queue`,
-			cluster.WithTags(bank.Tags),
+			cluster.WithTags(component.Tags),
 			cluster.Persistent())
 		if err != nil {
 			println(err)
