@@ -37,7 +37,11 @@ message CreateQueueRequest {
 }
 
 message CreateQueueResponse {
-  string QueueUrl = 1;
+  string QueueName = 1;
+}
+
+message QueueListResponse {
+  repeated string QueueNames = 1;
 }
 
 message GetQueueAttributesRequest {

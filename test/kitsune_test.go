@@ -30,10 +30,9 @@ func TestAll(t *testing.T) {
 	var err error
 	var res *http.Response
 	t.Run(`content-type`, func(t *testing.T) {
-		assert.True(t, await(10, 100, func() bool {
+		timeout(t, time.Second, func() {
 			res, err = c.Post(fmt.Sprintf("http://%s/", addr), "application/json", nil)
-			return err == nil
-		}), "%s", err)
+		})
 		require.Nil(t, err, err)
 		require.NotNil(t, res)
 		require.Equal(t, res.StatusCode, 400)
@@ -42,16 +41,50 @@ func TestAll(t *testing.T) {
 		assert.Equal(t, `invalid content-type`, string(body))
 	})
 	t.Run(`ListQueues`, func(t *testing.T) {
-		assert.True(t, await(10, 100, func() bool {
-			res, err = c.Post(fmt.Sprintf("http://%s/", addr), "application/x-amz-json-1.0", bytes.NewReader([]byte(
-				`{"Action":"ListQueues"}`,
+		timeout(t, time.Second, func() {
+			req, reqErr := http.NewRequest(http.MethodPost, fmt.Sprintf("http://%s/", addr), bytes.NewReader([]byte(
+				`{"QueueName":"kitsune-test-queue"}`,
 			)))
-			return err == nil
-		}), "%s", err)
+			if reqErr != nil {
+				err = reqErr
+				return
+			}
+			req.Header.Set("Content-Type", "application/x-amz-json-1.0")
+			req.Header.Set("X-Amz-Target", "AmazonSQS.CreateQueue")
+			req.Header.Set("X-Forwarded-Host", addr)
+			res, err = c.Do(req)
+		})
+
+		require.NoError(t, err)
 		body, err := io.ReadAll(res.Body)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		assert.Equal(t, "application/x-amz-json-1.0", res.Header.Get("Content-Type"))
+		assert.Contains(t, string(body), `"QueueUrl":"http://`+addr)
+		assert.Contains(t, string(body), `/kitsune-test-queue"`)
+		require.NoError(t, res.Body.Close())
+
+		timeout(t, time.Second, func() {
+			req, reqErr := http.NewRequest(http.MethodPost, fmt.Sprintf("http://%s/", addr), bytes.NewReader([]byte(
+				`{"QueueNamePrefix":"kitsune-test"}`,
+			)))
+			if reqErr != nil {
+				err = reqErr
+				return
+			}
+			req.Header.Set("Content-Type", "application/x-amz-json-1.0")
+			req.Header.Set("X-Amz-Target", "AmazonSQS.ListQueues")
+			req.Header.Set("X-Forwarded-Host", addr)
+			res, err = c.Do(req)
+		})
+		require.NoError(t, err)
+		body, err = io.ReadAll(res.Body)
 		require.Equal(t, 200, res.StatusCode, "%s", string(body))
 		require.Nil(t, err, err)
-		assert.Equal(t, `results`, string(body))
+		assert.Equal(t, "application/x-amz-json-1.0", res.Header.Get("Content-Type"))
+		assert.Contains(t, string(body), `"QueueUrls":["http://`+addr)
+		assert.Contains(t, string(body), `/kitsune-test-queue"]`)
+		require.NoError(t, res.Body.Close())
 	})
 	// More tests go here
 }
@@ -237,6 +270,21 @@ func setup(t *testing.T) (*http.Client, string) {
 		defer res.Body.Close()
 	})
 	return c, addr
+}
+
+func timeout(t *testing.T, d time.Duration, fn func()) {
+	done := make(chan bool)
+	go func() {
+		fn()
+		close(done)
+	}()
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-done:
+	case <-timer.C:
+		panic(`Timeout`)
+	}
 }
 
 func await(d, n time.Duration, fn func() bool) bool {

@@ -14,6 +14,7 @@ var (
 	ErrTermExpired       = errors.New(`Term expired`)
 	ErrQueueNameRequired = errors.New(`Queue name required`)
 	ErrQueueNameTooLong  = errors.New(`Queue name too long`)
+	ErrQueueNameInvalid  = errors.New(`Queue name invalid`)
 	ErrGroupNameRequired = errors.New(`Group name required`)
 	ErrGroupNameTooLong  = errors.New(`Group name too long`)
 )

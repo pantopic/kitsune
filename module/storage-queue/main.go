@@ -5,6 +5,7 @@ import (
 	"github.com/pantopic/ext-raft/sdk-go"
 
 	"github.com/pantopic/kitsune/module/pkg/cmd"
+	"github.com/pantopic/kitsune/module/pkg/globals"
 	"github.com/pantopic/kitsune/module/pkg/pb"
 	"github.com/pantopic/kitsune/module/pkg/query"
 )
@@ -49,10 +50,19 @@ func update(index uint64, c []byte) (value uint64, data []byte) {
 	}
 	switch c[len(c)-1] {
 	case cmd.QUEUE_CREATE:
-		// Incr queue_id
-		// Insert queue_id
-		// Insert queue
-		// Insert queue_stat
+		req := &pb.CreateQueueRequest{}
+		if err = req.UnmarshalVT(c[:len(c)-1]); err != nil {
+			return 400, []byte(`Invalid CreateQueue request`)
+		}
+		q, err := dbQueue.createInTxn(txn, []byte(req.QueueName))
+		if err != nil {
+			return 400, []byte(err.Error())
+		}
+		data, err = (&pb.CreateQueueResponse{QueueName: string(q.name)}).MarshalVT()
+		if err != nil {
+			panic(`Unable to marshal response: ` + err.Error())
+		}
+		value = 200
 	case cmd.QUEUE_PURGE:
 		// Find queue
 		//   else return error
@@ -163,9 +173,32 @@ func read(q []byte) (val uint64, data []byte) {
 	case query.HEALTH_CHECK:
 		return 200, []byte(`Okay`)
 	case query.QUEUE_LIST:
-		return 200, []byte(`results`)
-		// Scan queues
-		// Return list of queues
+		req := &pb.ListQueuesRequest{}
+		if err := req.UnmarshalVT(q[:len(q)-1]); err != nil {
+			return 400, []byte(`Invalid ListQueues request`)
+		}
+		maxResults := req.MaxResults
+		if maxResults == 0 || maxResults > globals.MAX_QUEUE_LIST_RESULTS() {
+			maxResults = globals.MAX_QUEUE_LIST_RESULTS()
+		}
+		var names [][]byte
+		err := mdb.View(func(txn mdb.Txn) error {
+			var err error
+			names, err = dbQueue.list(txn, []byte(req.QueueNamePrefix), maxResults)
+			return err
+		})
+		if err != nil {
+			return 500, []byte(err.Error())
+		}
+		resp := &pb.QueueListResponse{}
+		for _, name := range names {
+			resp.QueueNames = append(resp.QueueNames, string(name))
+		}
+		data, err := resp.MarshalVT()
+		if err != nil {
+			return 500, []byte(err.Error())
+		}
+		return 200, data
 	case query.QUEUE_URL:
 		// Find queue
 		// Return queue url
