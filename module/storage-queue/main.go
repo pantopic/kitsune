@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"strconv"
+	"strings"
 
 	"github.com/pantopic/ext-mdb/sdk-go"
 	"github.com/pantopic/ext-raft/sdk-go"
@@ -99,9 +100,19 @@ func update(index uint64, c []byte) (value uint64, data []byte) {
 		if err = req.UnmarshalVT(c[:len(c)-1]); err != nil {
 			return 400, []byte(`Invalid SendMessage request`)
 		}
-		resp, sendErr := dbMessage.send(txn, req, epoch)
+		var resp *pb.SendMessageResponse
+		sendErr := txn.Sub(func(sendTxn mdb.Txn) error {
+			var err error
+			resp, err = dbMessage.send(sendTxn, req, epoch)
+			return err
+		})
 		if sendErr != nil {
-			return 400, []byte(sendErr.Error())
+			switch sendErr {
+			case ErrMessageBodyInvalid, ErrMessageBodyRequired, ErrMessageBodyTooLarge, ErrMessageDelayInvalid, ErrMessageAttributesInvalid, ErrQueueDoesNotExist:
+				return 400, []byte(sendErr.Error())
+			default:
+				return 500, []byte(sendErr.Error())
+			}
 		}
 		data, err = resp.MarshalVT()
 		if err != nil {
@@ -343,6 +354,13 @@ func read(q []byte) (val uint64, data []byte) {
 			if err != nil {
 				return err
 			}
+			attributes["QueueArn"] = "arn:" + strings.Join([]string{
+				ARN_PARTITION(),  // aws
+				ARN_SERVICE(),    // sqs
+				ARN_REGION(),     // us-east-1
+				ARN_ACCOUNT_ID(), // 000000000000
+				req.QueueName,    // my-queue
+			}, ":")
 			if !containsAttribute(req.AttributeNames, "All") &&
 				!containsAttribute(req.AttributeNames, "ApproximateNumberOfMessages") &&
 				!containsAttribute(req.AttributeNames, "ApproximateNumberOfMessagesDelayed") &&

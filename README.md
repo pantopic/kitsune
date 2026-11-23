@@ -9,16 +9,21 @@ A distributed queue that's mostly API compatible with [SQS](https://docs.aws.ama
 
 Basic functionality is WIP.
 
-`SendMessageBatch` supports standard-queue message bodies and delays, including
-per-entry failures. Message attributes, system attributes, and FIFO fields are
-not yet supported and are rejected for batch entries.
+`SendMessage` and `SendMessageBatch` support standard message attributes and
+the `AWSTraceHeader` system attribute. Other message system attributes and
+FIFO fields are not yet supported. Batch sends report per-entry failures.
 `DeleteMessageBatch` and `ChangeMessageVisibilityBatch` support per-entry
 results for standard queues.
 `ListQueues` supports pagination when `MaxResults` is specified.
 Queue attributes include approximate visible, delayed, and in-flight counts.
-Message attributes and FIFO fields are rejected on single-message sends too.
+Queue ARNs use region `us-east-1` and account `000000000000` by default, configurable as globals.
+Message attribute selection supports exact names, `All`, `.*`, and `prefix.*`.
+Receive system-attribute selection currently supports `AWSTraceHeader` and
+`ApproximateReceiveCount`.
 Long polling is not implemented: nonzero effective `WaitTimeSeconds` is
 rejected rather than silently treated as a short poll.
+Queue and message timestamp attributes require a real host wall clock and are
+not yet supported.
 
 New message deliveries use generation-bearing receipt handles. Existing active
 legacy handles are supported under their previous validity rules, but older

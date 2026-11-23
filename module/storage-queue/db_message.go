@@ -16,10 +16,11 @@ import (
 
 var (
 	ErrMessageBodyInvalid     = errors.New(`Message body invalid`)
+	ErrMessageBodyRequired    = errors.New(`Message body required`)
 	ErrMessageBodyTooLarge    = errors.New(`Message body too large`)
 	ErrMessageDelayInvalid    = errors.New(`Message delay invalid`)
 	ErrReceiptHandleInvalid   = errors.New(`Receipt handle is invalid`)
-	ErrMessageBatchLimit      = errors.New(`Too many messages requested`)
+	ErrMessageBatchLimit      = errors.New(`Invalid MaxNumberOfMessages`)
 	ErrReceiptLimit           = errors.New(`Message receipt generation exhausted`)
 	ErrLongPollingUnsupported = errors.New(`Long polling is not supported`)
 )
@@ -86,10 +87,25 @@ func (db dbMessageImpl) counts(txn mdb.Txn, queueID, epoch uint64) (visible, del
 }
 
 func (db dbMessageImpl) send(txn mdb.Txn, req *pb.SendMessageRequest, epoch uint64) (*pb.SendMessageResponse, error) {
+	if req.MessageBody == "" {
+		return nil, ErrMessageBodyRequired
+	}
 	if !validMessageBody(req.MessageBody) {
 		return nil, ErrMessageBodyInvalid
 	}
-	if uint64(len(req.MessageBody)) > globals.MAX_MESSAGE_SIZE() {
+	attributeSize, err := validateMessageAttributes(req.MessageAttributes, false)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := validateMessageAttributes(req.MessageSystemAttributes, true); err != nil {
+		return nil, err
+	}
+	storedAttributes, err := normalizedMessageAttributes(req.MessageAttributes)
+	if err != nil {
+		return nil, err
+	}
+	size := uint64(len(req.MessageBody)) + attributeSize
+	if size > globals.MAX_MESSAGE_SIZE() {
 		return nil, ErrMessageBodyTooLarge
 	}
 	queueID, err := dbQueue.getID(txn, []byte(req.QueueName))
@@ -107,7 +123,7 @@ func (db dbMessageImpl) send(txn mdb.Txn, req *pb.SendMessageRequest, epoch uint
 	if err != nil {
 		return nil, err
 	}
-	if uint64(len(req.MessageBody)) > maxMessageSize {
+	if size > maxMessageSize {
 		return nil, ErrMessageBodyTooLarge
 	}
 	delay := req.DelaySeconds
@@ -139,7 +155,7 @@ func (db dbMessageImpl) send(txn mdb.Txn, req *pb.SendMessageRequest, epoch uint
 	messageIDBytes := binary.BigEndian.AppendUint64(nil, messageID)
 	primaryKey := append(append(append([]byte(nil), queueIDBytes...), groupIDBytes...), messageIDBytes...)
 	expires := epoch + retention
-	state := &pb.StoredMessage{Expires: expires, SentTimestamp: epoch, ReadyAt: epoch + delay}
+	state := &pb.StoredMessage{Expires: expires, SentTimestamp: epoch, ReadyAt: epoch + delay, MessageAttributes: storedAttributes, MessageSystemAttributes: req.MessageSystemAttributes}
 	stateBytes, err := state.MarshalVT()
 	if err != nil {
 		return nil, err
@@ -168,8 +184,10 @@ func (db dbMessageImpl) send(txn mdb.Txn, req *pb.SendMessageRequest, epoch uint
 	}
 	digest := md5.Sum(body)
 	return &pb.SendMessageResponse{
-		MessageId:        hex.EncodeToString(messageIDBytes),
-		Md5OfMessageBody: hex.EncodeToString(digest[:]),
+		MessageId:                    hex.EncodeToString(messageIDBytes),
+		Md5OfMessageBody:             hex.EncodeToString(digest[:]),
+		Md5OfMessageAttributes:       attributeDigest(req.MessageAttributes),
+		Md5OfMessageSystemAttributes: attributeDigest(req.MessageSystemAttributes),
 	}, nil
 }
 
@@ -195,7 +213,7 @@ func (db dbMessageImpl) sendBatch(txn mdb.Txn, req *pb.SendMessageBatchRequest, 
 			continue
 		}
 		ids = append(ids, entry.Id)
-		size += uint64(len(entry.MessageBody))
+		size += uint64(len(entry.MessageBody)) + messageAttributeSize(entry.MessageAttributes)
 	}
 	if code := validateBatchIDs(ids); code != "" {
 		return nil, code, nil
@@ -215,26 +233,28 @@ func (db dbMessageImpl) sendBatch(txn mdb.Txn, req *pb.SendMessageBatchRequest, 
 			var code, message string
 			switch {
 			case entry.UnsupportedFields:
-				code, message = "UnsupportedOperation", "Message attributes and FIFO fields are not supported"
+				code, message = "UnsupportedOperation", "FIFO fields are not supported"
 			case !entry.MessageBodySet:
 				code, message = "InvalidParameterValue", "MessageBody is required"
 			case entry.MessageBody == "":
 				code, message = "InvalidParameterValue", "MessageBody must not be empty"
 			default:
 				sent, err := db.send(batchTxn, &pb.SendMessageRequest{
-					QueueName:       req.QueueName,
-					MessageBody:     entry.MessageBody,
-					DelaySeconds:    entry.DelaySeconds,
-					DelaySecondsSet: entry.DelaySecondsSet,
+					QueueName:               req.QueueName,
+					MessageBody:             entry.MessageBody,
+					DelaySeconds:            entry.DelaySeconds,
+					DelaySecondsSet:         entry.DelaySecondsSet,
+					MessageAttributes:       entry.MessageAttributes,
+					MessageSystemAttributes: entry.MessageSystemAttributes,
 				}, epoch)
 				switch err {
 				case nil:
 					resp.Successful = append(resp.Successful, &pb.SendMessageBatchResultEntry{
-						Id: entry.Id, MessageId: sent.MessageId, Md5OfMessageBody: sent.Md5OfMessageBody,
+						Id: entry.Id, MessageId: sent.MessageId, Md5OfMessageBody: sent.Md5OfMessageBody, Md5OfMessageAttributes: sent.Md5OfMessageAttributes, Md5OfMessageSystemAttributes: sent.Md5OfMessageSystemAttributes,
 					})
 				case ErrMessageBodyInvalid:
 					code, message = "InvalidMessageContents", err.Error()
-				case ErrMessageBodyTooLarge, ErrMessageDelayInvalid:
+				case ErrMessageBodyTooLarge, ErrMessageDelayInvalid, ErrMessageAttributesInvalid:
 					code, message = "InvalidParameterValue", err.Error()
 				default:
 					return err
@@ -376,10 +396,10 @@ func (db dbMessageImpl) receive(txn mdb.Txn, req *pb.ReceiveMessageRequest, epoc
 		return nil, ErrQueueAttributeValueInvalid
 	}
 	maxMessages := req.MaxNumberOfMessages
-	if maxMessages == 0 {
+	if maxMessages == 0 && !req.MaxNumberOfMessagesSet {
 		maxMessages = 1
 	}
-	if maxMessages > globals.MAX_MESSAGE_BATCH_SIZE() {
+	if maxMessages == 0 || maxMessages > globals.MAX_MESSAGE_BATCH_SIZE() {
 		return nil, ErrMessageBatchLimit
 	}
 
@@ -469,10 +489,21 @@ func (db dbMessageImpl) receive(txn mdb.Txn, req *pb.ReceiveMessageRequest, epoc
 		}
 		receipt := append(append(append(append([]byte(nil), queueIDBytes...), groupIDBytes...), messageIDBytes...), binary.BigEndian.AppendUint64(nil, timeout)...)
 		receipt = binary.BigEndian.AppendUint64(receipt, state.ReceiptGeneration)
+		selected := selectMessageAttributes(state.MessageAttributes, req.MessageAttributeNames)
+		systemAttributes := make(map[string]string)
+		if containsAttribute(req.MessageSystemAttributeNames, "ApproximateReceiveCount") {
+			systemAttributes["ApproximateReceiveCount"] = strconv.FormatUint(uint64(state.ReceiveCount), 10)
+		}
+		if attr := state.MessageSystemAttributes["AWSTraceHeader"]; attr != nil && containsAttribute(req.MessageSystemAttributeNames, "AWSTraceHeader") {
+			systemAttributes["AWSTraceHeader"] = attr.StringValue
+		}
 		resp.Messages = append(resp.Messages, &pb.ReceivedMessage{
-			MessageId:     hex.EncodeToString(messageIDBytes),
-			ReceiptHandle: hex.EncodeToString(receipt),
-			Body:          string(body),
+			MessageId:              hex.EncodeToString(messageIDBytes),
+			ReceiptHandle:          hex.EncodeToString(receipt),
+			Body:                   string(body),
+			MessageAttributes:      selected,
+			Md5OfMessageAttributes: attributeDigest(selected),
+			Attributes:             systemAttributes,
 		})
 	}
 	return resp, nil

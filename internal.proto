@@ -82,11 +82,24 @@ message SendMessageRequest {
   string MessageBody = 2;
   uint64 DelaySeconds = 3;
   bool DelaySecondsSet = 4;
+  map<string, MessageAttribute> MessageAttributes = 5;
+  map<string, MessageAttribute> MessageSystemAttributes = 6;
+}
+
+message MessageAttribute {
+  string DataType = 1;
+  string StringValue = 2;
+  bytes BinaryValue = 3;
+  bool StringValueSet = 4;
+  bool BinaryValueSet = 5;
+  bool Invalid = 6;
 }
 
 message SendMessageResponse {
   string MessageId = 1;
   string Md5OfMessageBody = 2;
+  string Md5OfMessageAttributes = 3;
+  string Md5OfMessageSystemAttributes = 4;
 }
 
 message SendMessageBatchRequest {
@@ -101,12 +114,16 @@ message SendMessageBatchRequestEntry {
   bool DelaySecondsSet = 4;
   bool MessageBodySet = 5;
   bool UnsupportedFields = 6;
+  map<string, MessageAttribute> MessageAttributes = 7;
+  map<string, MessageAttribute> MessageSystemAttributes = 8;
 }
 
 message SendMessageBatchResultEntry {
   string Id = 1;
   string MessageId = 2;
   string Md5OfMessageBody = 3;
+  string Md5OfMessageAttributes = 4;
+  string Md5OfMessageSystemAttributes = 5;
 }
 
 message BatchResultErrorEntry {
@@ -128,12 +145,18 @@ message ReceiveMessageRequest {
   bool VisibilityTimeoutSet = 4;
   uint64 WaitTimeSeconds = 5;
   bool WaitTimeSecondsSet = 6;
+  repeated string MessageAttributeNames = 7;
+  repeated string MessageSystemAttributeNames = 8;
+  bool MaxNumberOfMessagesSet = 9;
 }
 
 message ReceivedMessage {
   string MessageId = 1;
   string ReceiptHandle = 2;
   string Body = 3;
+  map<string, MessageAttribute> MessageAttributes = 4;
+  string Md5OfMessageAttributes = 5;
+  map<string, string> Attributes = 6;
 }
 
 message ReceiveMessageResponse {
@@ -180,4 +203,6 @@ message StoredMessage {
   uint64 ActiveUntil = 5;
   uint64 ReceiptGeneration = 6;
   uint64 ReceiptTimeout = 7;
+  map<string, MessageAttribute> MessageAttributes = 8;
+  map<string, MessageAttribute> MessageSystemAttributes = 9;
 }

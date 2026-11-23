@@ -50,7 +50,7 @@ func TestAll(t *testing.T) {
 		require.Equal(t, res.StatusCode, 400)
 		body, err := io.ReadAll(res.Body)
 		require.Nil(t, err, err)
-		assert.Equal(t, `invalid content-type`, string(body))
+		assertSQSError(t, body, "InvalidParameterValue", "invalid content-type")
 	})
 	t.Run(`CreateQueue`, func(t *testing.T) {
 		res, body := requestSQS(t, c, addr, "CreateQueue", `{"QueueName":"kitsune-test-queue"}`)
@@ -122,7 +122,7 @@ func TestAll(t *testing.T) {
 		assert.Contains(t, string(body), `/kitsune-test-queue"`)
 	})
 	t.Run(`GetQueueAttributes`, func(t *testing.T) {
-		res, body := requestSQS(t, c, addr, "GetQueueAttributes", `{"QueueUrl":"`+queueURL+`","AttributeNames":["DelaySeconds","VisibilityTimeout","MaximumMessageSize"]}`)
+		res, body := requestSQS(t, c, addr, "GetQueueAttributes", `{"QueueUrl":"`+queueURL+`","AttributeNames":["DelaySeconds","VisibilityTimeout","MaximumMessageSize","QueueArn"]}`)
 		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
 		var attributesResponse struct {
 			Attributes map[string]string `json:"Attributes"`
@@ -131,6 +131,7 @@ func TestAll(t *testing.T) {
 		assert.Equal(t, "0", attributesResponse.Attributes["DelaySeconds"])
 		assert.Equal(t, "30", attributesResponse.Attributes["VisibilityTimeout"])
 		assert.Equal(t, "1048576", attributesResponse.Attributes["MaximumMessageSize"])
+		assert.Equal(t, "arn:aws:sqs:us-east-1:000000000000:kitsune-test-queue", attributesResponse.Attributes["QueueArn"])
 	})
 	t.Run(`SetQueueAttributes`, func(t *testing.T) {
 		res, body := requestSQS(t, c, addr, "SetQueueAttributes", `{"QueueUrl":"`+queueURL+`","Attributes":{"DelaySeconds":"10","VisibilityTimeout":"60"}}`)
@@ -139,7 +140,7 @@ func TestAll(t *testing.T) {
 
 		res, body = requestSQS(t, c, addr, "SetQueueAttributes", `{"QueueUrl":"`+queueURL+`","Attributes":{"DelaySeconds":"901"}}`)
 		require.Equal(t, http.StatusBadRequest, res.StatusCode, string(body))
-		assert.Equal(t, `Invalid attribute value`, string(body))
+		assertSQSError(t, body, "InvalidAttributeValue", "Invalid attribute value")
 	})
 	t.Run(`GetQueueAttributesAfterUpdate`, func(t *testing.T) {
 		res, body := requestSQS(t, c, addr, "GetQueueAttributes", `{"QueueUrl":"`+queueURL+`","AttributeNames":["DelaySeconds","VisibilityTimeout"]}`)
@@ -155,21 +156,41 @@ func TestAll(t *testing.T) {
 		res, body := requestSQS(t, c, addr, "SetQueueAttributes", `{"QueueUrl":"`+queueURL+`","Attributes":{"DelaySeconds":"0"}}`)
 		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
 	})
-	t.Run(`SendMessageUnsupportedAttributes`, func(t *testing.T) {
-		res, body := requestSQS(t, c, addr, "SendMessage", `{"QueueUrl":"`+queueURL+`","MessageBody":"must not be lost","MessageAttributes":{"a":{"DataType":"String","StringValue":"x"}}}`)
+	t.Run(`SendMessageInvalidAttributes`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "SendMessage", `{"QueueUrl":"`+queueURL+`","MessageBody":"must not be lost","MessageAttributes":{"a":{"DataType":"String","BinaryValue":"eA=="}}}`)
 		require.Equal(t, http.StatusBadRequest, res.StatusCode, string(body))
-		assert.Contains(t, string(body), "UnsupportedOperation")
+		assert.Contains(t, string(body), "Message attributes are invalid")
 	})
 	t.Run(`ReceiveMessageUnsupportedOptions`, func(t *testing.T) {
 		for _, option := range []string{
-			`"MessageAttributeNames":["All"]`,
 			`"MessageSystemAttributeNames":["All"]`,
 			`"WaitTimeSeconds":1`,
+			`"ReceiveRequestAttemptId":"fifo-only"`,
 		} {
 			res, body := requestSQS(t, c, addr, "ReceiveMessage", `{"QueueUrl":"`+queueURL+`",`+option+`}`)
 			require.Equal(t, http.StatusBadRequest, res.StatusCode, string(body))
 			assert.Contains(t, string(body), "UnsupportedOperation")
 		}
+	})
+	t.Run(`ReceiveMessageInvalidRequest`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "ReceiveMessage", `{"QueueUrl":"invalid"}`)
+		require.Equal(t, http.StatusBadRequest, res.StatusCode, string(body))
+		assertSQSError(t, body, "InvalidAddress", "invalid QueueUrl")
+		res, body = requestSQS(t, c, addr, "ReceiveMessage", `{"QueueUrl":`)
+		require.Equal(t, http.StatusBadRequest, res.StatusCode, string(body))
+		assert.Contains(t, string(body), `"__type":"com.amazonaws.sqs#InvalidParameterValue"`)
+	})
+	t.Run(`ReceiveMessageInvalidMaxNumber`, func(t *testing.T) {
+		for _, maximum := range []int{0, 11} {
+			res, body := requestSQS(t, c, addr, "ReceiveMessage", fmt.Sprintf(`{"QueueUrl":%q,"MaxNumberOfMessages":%d}`, queueURL, maximum))
+			require.Equal(t, http.StatusBadRequest, res.StatusCode, string(body))
+			assertSQSError(t, body, "InvalidParameterValue", "Invalid MaxNumberOfMessages")
+		}
+	})
+	t.Run(`ChangeMessageVisibilityMissingTimeout`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "ChangeMessageVisibility", `{"QueueUrl":"`+queueURL+`","ReceiptHandle":"invalid"}`)
+		require.Equal(t, http.StatusBadRequest, res.StatusCode, string(body))
+		assertSQSError(t, body, "InvalidParameterValue", "VisibilityTimeout is required")
 	})
 	t.Run(`SetQueueLongPollingDefault`, func(t *testing.T) {
 		res, body := requestSQS(t, c, addr, "SetQueueAttributes", `{"QueueUrl":"`+queueURL+`","Attributes":{"ReceiveMessageWaitTimeSeconds":"1"}}`)
@@ -185,6 +206,145 @@ func TestAll(t *testing.T) {
 	})
 	t.Run(`ResetQueueLongPollingDefault`, func(t *testing.T) {
 		res, body := requestSQS(t, c, addr, "SetQueueAttributes", `{"QueueUrl":"`+queueURL+`","Attributes":{"ReceiveMessageWaitTimeSeconds":"0"}}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+	})
+	t.Run(`SendMessageWithAttributes`, func(t *testing.T) {
+		request := `{"QueueUrl":"` + queueURL + `","MessageBody":"attributes","MessageAttributes":{` +
+			`"color":{"DataType":"String","StringValue":"blue"},` +
+			`"file":{"DataType":"Binary.png","BinaryValue":"AAH/"},` +
+			`"n":{"DataType":"Number","StringValue":"123.45"}},` +
+			`"MessageSystemAttributes":{"AWSTraceHeader":{"DataType":"String","StringValue":"Root=1-5759e988-bd862e3fe1be46a994272793;Parent=53995c3f42cd8ad8;Sampled=1"}}}`
+		res, body := requestSQS(t, c, addr, "SendMessage", request)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		var response struct {
+			AttributesMD5 string `json:"MD5OfMessageAttributes"`
+			SystemMD5     string `json:"MD5OfMessageSystemAttributes"`
+		}
+		require.NoError(t, json.Unmarshal(body, &response))
+		assert.Equal(t, "e823dee65d85d66874c702be5e121e3f", response.AttributesMD5)
+		assert.Equal(t, "5ae4d5d7636402d80f4eb6d213245a88", response.SystemMD5)
+	})
+	t.Run(`ReceiveMessageWithSelectedAttributes`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "ReceiveMessage", `{"QueueUrl":"`+queueURL+`","VisibilityTimeout":0,"MessageAttributeNames":["color"],"MessageSystemAttributeNames":["AWSTraceHeader","ApproximateReceiveCount"]}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		var response struct {
+			Messages []struct {
+				MessageAttributes map[string]map[string]string `json:"MessageAttributes"`
+				AttributesMD5     string                       `json:"MD5OfMessageAttributes"`
+				BodyMD5           string                       `json:"MD5OfBody"`
+				Attributes        map[string]string            `json:"Attributes"`
+			} `json:"Messages"`
+		}
+		require.NoError(t, json.Unmarshal(body, &response))
+		require.Len(t, response.Messages, 1)
+		assert.Equal(t, map[string]map[string]string{"color": {"DataType": "String", "StringValue": "blue"}}, response.Messages[0].MessageAttributes)
+		assert.Equal(t, "da1b33cc3cbfe8b1630921e78e6b9880", response.Messages[0].AttributesMD5)
+		assert.Equal(t, "736b91750e516139acc13c5eb6564f92", response.Messages[0].BodyMD5)
+		assert.Equal(t, "Root=1-5759e988-bd862e3fe1be46a994272793;Parent=53995c3f42cd8ad8;Sampled=1", response.Messages[0].Attributes["AWSTraceHeader"])
+		assert.Equal(t, "1", response.Messages[0].Attributes["ApproximateReceiveCount"])
+	})
+	t.Run(`ReceiveMessageWithAllAttributes`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "ReceiveMessage", `{"QueueUrl":"`+queueURL+`","MessageAttributeNames":[".*"],"MessageSystemAttributeNames":["ApproximateReceiveCount"]}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		var response struct {
+			Messages []struct {
+				ReceiptHandle     string                       `json:"ReceiptHandle"`
+				MessageAttributes map[string]map[string]string `json:"MessageAttributes"`
+				AttributesMD5     string                       `json:"MD5OfMessageAttributes"`
+				Attributes        map[string]string            `json:"Attributes"`
+			} `json:"Messages"`
+		}
+		require.NoError(t, json.Unmarshal(body, &response))
+		require.Len(t, response.Messages, 1)
+		assert.Equal(t, map[string]string{"DataType": "Binary.png", "BinaryValue": "AAH/"}, response.Messages[0].MessageAttributes["file"])
+		assert.Equal(t, map[string]string{"DataType": "Number", "StringValue": "123.45"}, response.Messages[0].MessageAttributes["n"])
+		assert.Equal(t, "e823dee65d85d66874c702be5e121e3f", response.Messages[0].AttributesMD5)
+		assert.Equal(t, "2", response.Messages[0].Attributes["ApproximateReceiveCount"])
+		receiptHandle = response.Messages[0].ReceiptHandle
+	})
+	t.Run(`DeleteMessageWithAttributes`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "DeleteMessage", `{"QueueUrl":"`+queueURL+`","ReceiptHandle":"`+receiptHandle+`"}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+	})
+	t.Run(`SendMessageWithInvalidAttributeValues`, func(t *testing.T) {
+		for _, attribute := range []string{
+			`{"AWS.reserved":{"DataType":"String","StringValue":"x"}}`,
+			`{"bad..name":{"DataType":"String","StringValue":"x"}}`,
+			`{"x":{"DataType":"Binary","BinaryValue":"bad!"}}`,
+			`{"x":{"DataType":"Number","StringValue":"1e-129"}}`,
+			`{"x":{"DataType":"Number","StringValue":"2e126"}}`,
+			`{"x":{"DataType":"String","StringValue":"x","BinaryValue":"eA=="}}`,
+		} {
+			res, body := requestSQS(t, c, addr, "SendMessage", `{"QueueUrl":"`+queueURL+`","MessageBody":"invalid","MessageAttributes":`+attribute+`}`)
+			require.Equal(t, http.StatusBadRequest, res.StatusCode, string(body))
+		}
+		res, body := requestSQS(t, c, addr, "SendMessage", `{"QueueUrl":"`+queueURL+`","MessageBody":"invalid","MessageSystemAttributes":{"AWSTraceHeader":{"DataType":"String","StringValue":"Root=bad"}}}`)
+		require.Equal(t, http.StatusBadRequest, res.StatusCode, string(body))
+		attributes := make(map[string]any)
+		for i := 0; i < 11; i++ {
+			attributes[strconv.Itoa(i)] = map[string]string{"DataType": "String", "StringValue": "x"}
+		}
+		request, err := json.Marshal(map[string]any{"QueueUrl": queueURL, "MessageBody": "invalid", "MessageAttributes": attributes})
+		require.NoError(t, err)
+		res, body = requestSQS(t, c, addr, "SendMessage", string(request))
+		require.Equal(t, http.StatusBadRequest, res.StatusCode, string(body))
+	})
+	t.Run(`SendMessageWithNumberAttribute`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "SendMessage", `{"QueueUrl":"`+queueURL+`","MessageBody":"number","MessageAttributes":{"n.value":{"DataType":"Number","StringValue":"0012.3400"}}}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		var response struct {
+			AttributesMD5 string `json:"MD5OfMessageAttributes"`
+		}
+		require.NoError(t, json.Unmarshal(body, &response))
+		assert.Equal(t, "06c31966300ca4ca887f9deadeb97119", response.AttributesMD5)
+	})
+	t.Run(`ReceiveMessageWithNumberAttribute`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "ReceiveMessage", `{"QueueUrl":"`+queueURL+`","MessageAttributeNames":["n.*"]}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		var response struct {
+			Messages []struct {
+				ReceiptHandle     string                       `json:"ReceiptHandle"`
+				MessageAttributes map[string]map[string]string `json:"MessageAttributes"`
+				AttributesMD5     string                       `json:"MD5OfMessageAttributes"`
+			} `json:"Messages"`
+		}
+		require.NoError(t, json.Unmarshal(body, &response))
+		require.Len(t, response.Messages, 1)
+		assert.Equal(t, "12.34", response.Messages[0].MessageAttributes["n.value"]["StringValue"])
+		assert.Equal(t, "713d21b8ba0c9882dd66fe4f99d3fa90", response.Messages[0].AttributesMD5)
+		receiptHandle = response.Messages[0].ReceiptHandle
+	})
+	t.Run(`DeleteMessageWithNumberAttribute`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "DeleteMessage", `{"QueueUrl":"`+queueURL+`","ReceiptHandle":"`+receiptHandle+`"}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+	})
+	t.Run(`SetQueueMessageSizeForAttributes`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "SetQueueAttributes", `{"QueueUrl":"`+queueURL+`","Attributes":{"MaximumMessageSize":"1024"}}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+	})
+	t.Run(`SendMessageAttributeSizeLimit`, func(t *testing.T) {
+		for _, test := range []struct {
+			bodySize int
+			status   int
+		}{{1016, http.StatusOK}, {1017, http.StatusBadRequest}} {
+			request, err := json.Marshal(map[string]any{
+				"QueueUrl": queueURL, "MessageBody": strings.Repeat("x", test.bodySize),
+				"MessageAttributes": map[string]any{"x": map[string]string{"DataType": "String", "StringValue": "y"}},
+			})
+			require.NoError(t, err)
+			res, body := requestSQS(t, c, addr, "SendMessage", string(request))
+			require.Equal(t, test.status, res.StatusCode, string(body))
+			if test.status != http.StatusOK {
+				assertSQSError(t, body, "InvalidParameterValue", "Message body too large")
+			}
+		}
+	})
+	t.Run(`PurgeMessageForAttributeSize`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "PurgeQueue", `{"QueueUrl":"`+queueURL+`"}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+	})
+	t.Run(`ResetQueueMessageSizeForAttributes`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "SetQueueAttributes", `{"QueueUrl":"`+queueURL+`","Attributes":{"MaximumMessageSize":"1048576"}}`)
 		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
 	})
 	t.Run(`SendMessage`, func(t *testing.T) {
@@ -245,12 +405,12 @@ func TestAll(t *testing.T) {
 	t.Run(`DeleteMessageWithStaleReceipt`, func(t *testing.T) {
 		res, body := requestSQS(t, c, addr, "DeleteMessage", `{"QueueUrl":"`+queueURL+`","ReceiptHandle":"`+staleReceiptHandle+`"}`)
 		require.Equal(t, http.StatusBadRequest, res.StatusCode, string(body))
-		assert.Equal(t, `Receipt handle is invalid`, string(body))
+		assertSQSError(t, body, "ReceiptHandleIsInvalid", "Receipt handle is invalid")
 	})
 	t.Run(`ChangeMessageVisibilityWithStaleReceipt`, func(t *testing.T) {
 		res, body := requestSQS(t, c, addr, "ChangeMessageVisibility", `{"QueueUrl":"`+queueURL+`","ReceiptHandle":"`+staleReceiptHandle+`","VisibilityTimeout":0}`)
 		require.Equal(t, http.StatusBadRequest, res.StatusCode, string(body))
-		assert.Equal(t, `Receipt handle is invalid`, string(body))
+		assertSQSError(t, body, "ReceiptHandleIsInvalid", "Receipt handle is invalid")
 	})
 	t.Run(`ChangeMessageVisibilityTimeout`, func(t *testing.T) {
 		res, body := requestSQS(t, c, addr, "ChangeMessageVisibility", `{"QueueUrl":"`+queueURL+`","ReceiptHandle":"`+receiptHandle+`","VisibilityTimeout":2}`)
@@ -340,12 +500,12 @@ func TestAll(t *testing.T) {
 	t.Run(`DeleteMessageWithEarlierZeroVisibilityReceipt`, func(t *testing.T) {
 		res, body := requestSQS(t, c, addr, "DeleteMessage", `{"QueueUrl":"`+queueURL+`","ReceiptHandle":"`+earlierReceiptHandle+`"}`)
 		require.Equal(t, http.StatusBadRequest, res.StatusCode, string(body))
-		assert.Equal(t, `Receipt handle is invalid`, string(body))
+		assertSQSError(t, body, "ReceiptHandleIsInvalid", "Receipt handle is invalid")
 	})
 	t.Run(`ChangeMessageVisibilityWithEarlierZeroVisibilityReceipt`, func(t *testing.T) {
 		res, body := requestSQS(t, c, addr, "ChangeMessageVisibility", `{"QueueUrl":"`+queueURL+`","ReceiptHandle":"`+earlierReceiptHandle+`","VisibilityTimeout":60}`)
 		require.Equal(t, http.StatusBadRequest, res.StatusCode, string(body))
-		assert.Equal(t, `Receipt handle is invalid`, string(body))
+		assertSQSError(t, body, "ReceiptHandleIsInvalid", "Receipt handle is invalid")
 	})
 	t.Run(`ReceiveMessageAgainAfterZeroVisibility`, func(t *testing.T) {
 		res, body := requestSQS(t, c, addr, "ReceiveMessage", `{"QueueUrl":"`+queueURL+`"}`)
@@ -364,13 +524,13 @@ func TestAll(t *testing.T) {
 	t.Run(`DeleteMessageWithStaleZeroVisibilityReceipt`, func(t *testing.T) {
 		res, body := requestSQS(t, c, addr, "DeleteMessage", `{"QueueUrl":"`+queueURL+`","ReceiptHandle":"`+staleReceiptHandle+`"}`)
 		require.Equal(t, http.StatusBadRequest, res.StatusCode, string(body))
-		assert.Equal(t, `Receipt handle is invalid`, string(body))
+		assertSQSError(t, body, "ReceiptHandleIsInvalid", "Receipt handle is invalid")
 	})
 	t.Run(`DeleteMessageWithTruncatedReceipt`, func(t *testing.T) {
 		require.GreaterOrEqual(t, len(receiptHandle), 64)
 		res, body := requestSQS(t, c, addr, "DeleteMessage", `{"QueueUrl":"`+queueURL+`","ReceiptHandle":"`+receiptHandle[:64]+`"}`)
 		require.Equal(t, http.StatusBadRequest, res.StatusCode, string(body))
-		assert.Equal(t, `Receipt handle is invalid`, string(body))
+		assertSQSError(t, body, "ReceiptHandleIsInvalid", "Receipt handle is invalid")
 	})
 	t.Run(`DeleteMessageWithModifiedReceipt`, func(t *testing.T) {
 		require.GreaterOrEqual(t, len(receiptHandle), 80)
@@ -383,7 +543,7 @@ func TestAll(t *testing.T) {
 			}
 			res, body := requestSQS(t, c, addr, "DeleteMessage", `{"QueueUrl":"`+queueURL+`","ReceiptHandle":"`+string(modified)+`"}`)
 			require.Equal(t, http.StatusBadRequest, res.StatusCode, string(body))
-			assert.Equal(t, `Receipt handle is invalid`, string(body))
+			assertSQSError(t, body, "ReceiptHandleIsInvalid", "Receipt handle is invalid")
 		}
 	})
 	t.Run(`ChangeMessageVisibilityBeforeDelete`, func(t *testing.T) {
@@ -461,6 +621,7 @@ func TestAll(t *testing.T) {
 			{"empty id", queueURL, []any{map[string]any{"Id": ""}}, "InvalidBatchEntryId"},
 			{"long id", queueURL, []any{map[string]any{"Id": strings.Repeat("a", 81)}}, "InvalidBatchEntryId"},
 			{"too large", queueURL, []any{map[string]any{"Id": "a", "MessageBody": strings.Repeat("a", (1<<19)+1)}, map[string]any{"Id": "b", "MessageBody": strings.Repeat("b", 1<<19)}}, "BatchRequestTooLong"},
+			{"attribute exceeds total size", queueURL, []any{map[string]any{"Id": "a", "MessageBody": strings.Repeat("a", (1<<20)-7), "MessageAttributes": map[string]any{"x": map[string]any{"DataType": "String", "StringValue": "y"}}}}, "BatchRequestTooLong"},
 			{"missing queue", queueURL + "-missing", []any{map[string]any{"Id": "a", "MessageBody": "message"}}, "QueueDoesNotExist"},
 		}
 		for _, tc := range cases {
@@ -505,7 +666,7 @@ func TestAll(t *testing.T) {
 		request, err := json.Marshal(map[string]any{
 			"QueueUrl": queueURL,
 			"Entries": []any{
-				map[string]any{"Id": strings.Repeat("a", 80), "MessageBody": strings.Repeat("a", 1<<19)},
+				map[string]any{"Id": strings.Repeat("a", 80), "MessageBody": strings.Repeat("a", (1<<19)-8), "MessageAttributes": map[string]any{"x": map[string]any{"DataType": "String", "StringValue": "y"}}},
 				map[string]any{"Id": "second", "MessageBody": strings.Repeat("b", 1<<19)},
 			},
 		})
@@ -533,6 +694,11 @@ func TestAll(t *testing.T) {
 			require.NoError(t, err)
 			res, body := requestSQS(t, c, addr, "SendMessage", string(request))
 			require.Equal(t, http.StatusBadRequest, res.StatusCode, string(body))
+			if message == "" {
+				assertSQSError(t, body, "InvalidParameterValue", "Message body required")
+			} else {
+				assertSQSError(t, body, "InvalidMessageContents", "Message body invalid")
+			}
 		}
 	})
 	t.Run(`SetQueueDelayForBatch`, func(t *testing.T) {
@@ -542,20 +708,21 @@ func TestAll(t *testing.T) {
 	batchIDs := make(map[string]string)
 	t.Run(`SendMessageBatch`, func(t *testing.T) {
 		request := `{"QueueUrl":"` + queueURL + `","Entries":[` +
-			`{"Id":"first","MessageBody":"first message","DelaySeconds":0},` +
+			`{"Id":"first","MessageBody":"first message","DelaySeconds":0,"MessageAttributes":{"file":{"DataType":"Binary.png","BinaryValue":"AAH/"}}},` +
 			`{"Id":"second","MessageBody":"second message","DelaySeconds":0},` +
 			`{"Id":"delay","MessageBody":"invalid delay","DelaySeconds":901},` +
 			`{"Id":"contents","MessageBody":"invalid\u0001"},` +
 			`{"Id":"missing"},` +
 			`{"Id":"empty","MessageBody":""},` +
-			`{"Id":"attributes","MessageBody":"unsupported","MessageAttributes":{"a":{"DataType":"String","StringValue":"x"}}}]}`
+			`{"Id":"attributes","MessageBody":"invalid","MessageAttributes":{"a":{"DataType":"String","BinaryValue":"eA=="}}}]}`
 		res, body := requestSQS(t, c, addr, "SendMessageBatch", request)
 		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
 		var response struct {
 			Successful []struct {
-				ID        string `json:"Id"`
-				MessageID string `json:"MessageId"`
-				MD5       string `json:"MD5OfMessageBody"`
+				ID            string `json:"Id"`
+				MessageID     string `json:"MessageId"`
+				MD5           string `json:"MD5OfMessageBody"`
+				AttributesMD5 string `json:"MD5OfMessageAttributes"`
 			} `json:"Successful"`
 			Failed []struct {
 				ID          string `json:"Id"`
@@ -571,6 +738,11 @@ func TestAll(t *testing.T) {
 			require.NotEmpty(t, entry.MessageID)
 			digest := md5.Sum([]byte(entry.ID + " message"))
 			assert.Equal(t, fmt.Sprintf("%x", digest), entry.MD5)
+			if entry.ID == "first" {
+				assert.Equal(t, "3daad1b5d26959d840291c3380341dd8", entry.AttributesMD5)
+			} else {
+				assert.Empty(t, entry.AttributesMD5)
+			}
 			batchIDs[entry.ID] = entry.MessageID
 		}
 		require.Len(t, batchIDs, 2)
@@ -578,7 +750,7 @@ func TestAll(t *testing.T) {
 		require.Len(t, response.Failed, 5)
 		expected := map[string]string{
 			"delay": "InvalidParameterValue", "contents": "InvalidMessageContents",
-			"missing": "InvalidParameterValue", "empty": "InvalidParameterValue", "attributes": "UnsupportedOperation",
+			"missing": "InvalidParameterValue", "empty": "InvalidParameterValue", "attributes": "InvalidParameterValue",
 		}
 		for _, entry := range response.Failed {
 			assert.Equal(t, expected[entry.ID], entry.Code)
@@ -820,6 +992,7 @@ func TestAll(t *testing.T) {
 		assert.Equal(t, "1", response.Attributes["ApproximateNumberOfMessages"])
 		assert.Equal(t, "0", response.Attributes["ApproximateNumberOfMessagesDelayed"])
 		assert.Equal(t, "1", response.Attributes["ApproximateNumberOfMessagesNotVisible"])
+		assert.Equal(t, "arn:aws:sqs:us-east-1:000000000000:kitsune-test-queue", response.Attributes["QueueArn"])
 	})
 	t.Run(`ReceiveMessageAfterRetentionExpiry`, func(t *testing.T) {
 		time.Sleep(65 * time.Second)
@@ -830,7 +1003,7 @@ func TestAll(t *testing.T) {
 	t.Run(`DeleteMessageAfterRetentionExpiry`, func(t *testing.T) {
 		res, body := requestSQS(t, c, addr, "DeleteMessage", `{"QueueUrl":"`+queueURL+`","ReceiptHandle":"`+receiptHandle+`"}`)
 		require.Equal(t, http.StatusBadRequest, res.StatusCode, string(body))
-		assert.Equal(t, `Receipt handle is invalid`, string(body))
+		assertSQSError(t, body, "ReceiptHandleIsInvalid", "Receipt handle is invalid")
 	})
 	t.Run(`DeleteQueue`, func(t *testing.T) {
 		res, body := requestSQS(t, c, addr, "DeleteQueue", `{"QueueUrl":"`+queueURL+`"}`)
@@ -845,7 +1018,7 @@ func TestAll(t *testing.T) {
 	t.Run(`GetQueueUrlAfterDelete`, func(t *testing.T) {
 		res, body := requestSQS(t, c, addr, "GetQueueUrl", `{"QueueName":"kitsune-test-queue"}`)
 		require.Equal(t, http.StatusBadRequest, res.StatusCode, string(body))
-		assert.Equal(t, `Queue does not exist`, string(body))
+		assertSQSError(t, body, "QueueDoesNotExist", "Queue does not exist")
 	})
 	// More tests go here
 }
@@ -890,6 +1063,17 @@ func BenchmarkBasic(b *testing.B) {
 		res, body = requestSQS(b, c, addr, "DeleteMessage", deleteBody)
 		require.Equal(b, http.StatusOK, res.StatusCode, string(body))
 	}
+}
+
+func assertSQSError(t *testing.T, body []byte, code, message string) {
+	t.Helper()
+	var response struct {
+		Type    string `json:"__type"`
+		Message string `json:"message"`
+	}
+	require.NoError(t, json.Unmarshal(body, &response))
+	assert.Equal(t, "com.amazonaws.sqs#"+code, response.Type)
+	assert.Equal(t, message, response.Message)
 }
 
 func requestSQS(t testing.TB, c *http.Client, addr, action, body string) (*http.Response, []byte) {
