@@ -35,9 +35,22 @@ type getQueueAttributesRequest struct {
 }
 
 type sendMessageRequest struct {
-	QueueURL     string `json:"QueueUrl"`
-	MessageBody  string `json:"MessageBody"`
-	DelaySeconds uint64 `json:"DelaySeconds"`
+	QueueURL     string  `json:"QueueUrl"`
+	MessageBody  string  `json:"MessageBody"`
+	DelaySeconds *uint64 `json:"DelaySeconds"`
+}
+
+type sendMessageBatchRequest struct {
+	QueueURL string `json:"QueueUrl"`
+	Entries  []struct {
+		ID                      string                     `json:"Id"`
+		MessageBody             *string                    `json:"MessageBody"`
+		DelaySeconds            *uint64                    `json:"DelaySeconds"`
+		MessageAttributes       map[string]json.RawMessage `json:"MessageAttributes"`
+		MessageSystemAttributes map[string]json.RawMessage `json:"MessageSystemAttributes"`
+		MessageDeduplicationID  string                     `json:"MessageDeduplicationId"`
+		MessageGroupID          string                     `json:"MessageGroupId"`
+	} `json:"Entries"`
 }
 
 type receiveMessageRequest struct {
@@ -81,7 +94,12 @@ func httpHandler(method, path []byte) {
 			requestHost = "localhost"
 		}
 		targetHeader := http_server.GetHeaders("x-amz-target")
-		body := http_server.BodyRead(bodyBuf)
+		var body []byte
+		if http_server.BodyLen() > cap(bodyBuf) {
+			body = http_server.BodyRead(nil)
+		} else {
+			body = http_server.BodyRead(bodyBuf)
+		}
 		request = &pb.Request{}
 		if err := request.UnmarshalJSON(body); err != nil {
 			http_server.Send(400, []byte(err.Error()))
@@ -238,16 +256,53 @@ func httpHandler(method, path []byte) {
 				http_server.Send(400, []byte(`invalid QueueUrl`))
 				return
 			}
-			b, err := (&pb.SendMessageRequest{
-				QueueName:    name,
-				MessageBody:  req.MessageBody,
-				DelaySeconds: req.DelaySeconds,
-			}).MarshalVT()
+			sendReq := &pb.SendMessageRequest{QueueName: name, MessageBody: req.MessageBody}
+			if req.DelaySeconds != nil {
+				sendReq.DelaySeconds = *req.DelaySeconds
+				sendReq.DelaySecondsSet = true
+			}
+			b, err := sendReq.MarshalVT()
 			if err != nil {
 				http_server.Send(500, []byte(err.Error()))
 				return
 			}
 			if err := queueShard().ApplyAsync(asyncName(action, requestHost), append(b, cmd.MESSAGE_SEND)); err != nil {
+				http_server.Send(500, []byte(err.Error()))
+				return
+			}
+		case "SendMessageBatch":
+			var req sendMessageBatchRequest
+			if err := json.Unmarshal(body, &req); err != nil {
+				http_server.Send(400, []byte(err.Error()))
+				return
+			}
+			name, ok := queueNameFromURL(req.QueueURL)
+			if !ok {
+				http_server.Send(400, []byte(`invalid QueueUrl`))
+				return
+			}
+			batch := &pb.SendMessageBatchRequest{QueueName: name}
+			for _, entry := range req.Entries {
+				item := &pb.SendMessageBatchRequestEntry{
+					Id:                entry.ID,
+					MessageBodySet:    entry.MessageBody != nil,
+					DelaySecondsSet:   entry.DelaySeconds != nil,
+					UnsupportedFields: len(entry.MessageAttributes) > 0 || len(entry.MessageSystemAttributes) > 0 || entry.MessageDeduplicationID != "" || entry.MessageGroupID != "",
+				}
+				if entry.MessageBody != nil {
+					item.MessageBody = *entry.MessageBody
+				}
+				if entry.DelaySeconds != nil {
+					item.DelaySeconds = *entry.DelaySeconds
+				}
+				batch.Entries = append(batch.Entries, item)
+			}
+			b, err := batch.MarshalVT()
+			if err != nil {
+				http_server.Send(500, []byte(err.Error()))
+				return
+			}
+			if err := queueShard().ApplyAsync(asyncName(action, requestHost), append(b, cmd.MESSAGE_SEND_BATCH)); err != nil {
 				http_server.Send(500, []byte(err.Error()))
 				return
 			}
@@ -465,6 +520,59 @@ func asyncRecv(name, data []byte, val uint64, err error) {
 			MessageID        string `json:"MessageId"`
 			Md5OfMessageBody string `json:"MD5OfMessageBody"`
 		}{MessageID: resp.MessageId, Md5OfMessageBody: resp.Md5OfMessageBody})
+		if err != nil {
+			http_server.Send(500, []byte(err.Error()))
+			return
+		}
+		sendJSON(200, body)
+	case "SendMessageBatch":
+		if val != 200 {
+			if val == 400 {
+				switch string(data) {
+				case "EmptyBatchRequest", "TooManyEntriesInBatchRequest", "InvalidBatchEntryId", "BatchEntryIdsNotDistinct", "BatchRequestTooLong", "QueueDoesNotExist":
+					body, err := json.Marshal(struct {
+						Type    string `json:"__type"`
+						Message string `json:"message"`
+					}{Type: "com.amazonaws.sqs#" + string(data), Message: string(data)})
+					if err != nil {
+						http_server.Send(500, []byte(err.Error()))
+						return
+					}
+					sendJSON(400, body)
+					return
+				}
+			}
+			http_server.Send(int(val), data)
+			return
+		}
+		resp := &pb.SendMessageBatchResponse{}
+		if err := resp.UnmarshalVT(data); err != nil {
+			http_server.Send(500, []byte(err.Error()))
+			return
+		}
+		type successfulEntry struct {
+			ID               string `json:"Id"`
+			MessageID        string `json:"MessageId"`
+			Md5OfMessageBody string `json:"MD5OfMessageBody"`
+		}
+		type failedEntry struct {
+			ID          string `json:"Id"`
+			Code        string `json:"Code"`
+			Message     string `json:"Message"`
+			SenderFault bool   `json:"SenderFault"`
+		}
+		successful := make([]successfulEntry, 0, len(resp.Successful))
+		for _, entry := range resp.Successful {
+			successful = append(successful, successfulEntry{ID: entry.Id, MessageID: entry.MessageId, Md5OfMessageBody: entry.Md5OfMessageBody})
+		}
+		failed := make([]failedEntry, 0, len(resp.Failed))
+		for _, entry := range resp.Failed {
+			failed = append(failed, failedEntry{ID: entry.Id, Code: entry.Code, Message: entry.Message, SenderFault: entry.SenderFault})
+		}
+		body, err := json.Marshal(struct {
+			Successful []successfulEntry `json:"Successful"`
+			Failed     []failedEntry     `json:"Failed"`
+		}{Successful: successful, Failed: failed})
 		if err != nil {
 			http_server.Send(500, []byte(err.Error()))
 			return

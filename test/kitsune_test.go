@@ -3,6 +3,7 @@ package kitsune_test
 import (
 	"bytes"
 	"context"
+	"crypto/md5"
 	_ "embed"
 	"encoding/json"
 	"fmt"
@@ -272,6 +273,220 @@ func TestAll(t *testing.T) {
 		assert.Equal(t, `{}`, string(body))
 	})
 	t.Run(`ResetQueueDelayAfterMessage`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "SetQueueAttributes", `{"QueueUrl":"`+queueURL+`","Attributes":{"DelaySeconds":"0"}}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+	})
+	t.Run(`SendMessageBatchInvalidRequests`, func(t *testing.T) {
+		entries := make([]map[string]any, 11)
+		for i := range entries {
+			entries[i] = map[string]any{"Id": strconv.Itoa(i), "MessageBody": "message"}
+		}
+		cases := []struct {
+			name    string
+			url     string
+			entries any
+			code    string
+		}{
+			{"empty", queueURL, []any{}, "EmptyBatchRequest"},
+			{"too many", queueURL, entries, "TooManyEntriesInBatchRequest"},
+			{"duplicate", queueURL, []any{map[string]any{"Id": "same", "MessageBody": "must not be sent"}, map[string]any{"Id": "same", "MessageBody": "also invalid"}}, "BatchEntryIdsNotDistinct"},
+			{"invalid characters", queueURL, []any{map[string]any{"Id": "bad.id"}}, "InvalidBatchEntryId"},
+			{"non-ascii id", queueURL, []any{map[string]any{"Id": "é"}}, "InvalidBatchEntryId"},
+			{"empty id", queueURL, []any{map[string]any{"Id": ""}}, "InvalidBatchEntryId"},
+			{"long id", queueURL, []any{map[string]any{"Id": strings.Repeat("a", 81)}}, "InvalidBatchEntryId"},
+			{"too large", queueURL, []any{map[string]any{"Id": "a", "MessageBody": strings.Repeat("a", (1<<19)+1)}, map[string]any{"Id": "b", "MessageBody": strings.Repeat("b", 1<<19)}}, "BatchRequestTooLong"},
+			{"missing queue", queueURL + "-missing", []any{map[string]any{"Id": "a", "MessageBody": "message"}}, "QueueDoesNotExist"},
+		}
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				request, err := json.Marshal(map[string]any{"QueueUrl": tc.url, "Entries": tc.entries})
+				require.NoError(t, err)
+				res, body := requestSQS(t, c, addr, "SendMessageBatch", string(request))
+				require.Equal(t, http.StatusBadRequest, res.StatusCode, string(body))
+				require.Equal(t, "application/x-amz-json-1.0", res.Header.Get("Content-Type"))
+				var response struct {
+					Type string `json:"__type"`
+				}
+				require.NoError(t, json.Unmarshal(body, &response))
+				assert.Equal(t, "com.amazonaws.sqs#"+tc.code, response.Type)
+			})
+		}
+	})
+	t.Run(`ReceiveAfterInvalidBatches`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "ReceiveMessage", `{"QueueUrl":"`+queueURL+`"}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		assert.Equal(t, `{"Messages":[]}`, string(body))
+	})
+	t.Run(`SendMessageBatchAtEntryLimit`, func(t *testing.T) {
+		entries := make([]map[string]any, 10)
+		for i := range entries {
+			entries[i] = map[string]any{"Id": strconv.Itoa(i), "MessageBody": "message"}
+		}
+		request, err := json.Marshal(map[string]any{"QueueUrl": queueURL, "Entries": entries})
+		require.NoError(t, err)
+		res, body := requestSQS(t, c, addr, "SendMessageBatch", string(request))
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		var response struct {
+			Successful []json.RawMessage `json:"Successful"`
+			Failed     []json.RawMessage `json:"Failed"`
+		}
+		require.NoError(t, json.Unmarshal(body, &response))
+		require.Len(t, response.Successful, 10)
+		assert.NotNil(t, response.Failed)
+		assert.Empty(t, response.Failed)
+	})
+	t.Run(`SendMessageBatchAtSizeLimit`, func(t *testing.T) {
+		request, err := json.Marshal(map[string]any{
+			"QueueUrl": queueURL,
+			"Entries": []any{
+				map[string]any{"Id": strings.Repeat("a", 80), "MessageBody": strings.Repeat("a", 1<<19)},
+				map[string]any{"Id": "second", "MessageBody": strings.Repeat("b", 1<<19)},
+			},
+		})
+		require.NoError(t, err)
+		res, body := requestSQS(t, c, addr, "SendMessageBatch", string(request))
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		var response struct {
+			Successful []struct {
+				ID string `json:"Id"`
+			} `json:"Successful"`
+			Failed []json.RawMessage `json:"Failed"`
+		}
+		require.NoError(t, json.Unmarshal(body, &response))
+		require.Len(t, response.Successful, 2)
+		assert.NotNil(t, response.Failed)
+		assert.Empty(t, response.Failed)
+	})
+	t.Run(`PurgeSizeLimitBatch`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "PurgeQueue", `{"QueueUrl":"`+queueURL+`"}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+	})
+	t.Run(`SendMessageInvalidContents`, func(t *testing.T) {
+		for _, message := range []string{"", "bad\u0001", "bad\uffff"} {
+			request, err := json.Marshal(map[string]any{"QueueUrl": queueURL, "MessageBody": message})
+			require.NoError(t, err)
+			res, body := requestSQS(t, c, addr, "SendMessage", string(request))
+			require.Equal(t, http.StatusBadRequest, res.StatusCode, string(body))
+		}
+	})
+	t.Run(`SetQueueDelayForBatch`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "SetQueueAttributes", `{"QueueUrl":"`+queueURL+`","Attributes":{"DelaySeconds":"2"}}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+	})
+	batchIDs := make(map[string]string)
+	t.Run(`SendMessageBatch`, func(t *testing.T) {
+		request := `{"QueueUrl":"` + queueURL + `","Entries":[` +
+			`{"Id":"first","MessageBody":"first message","DelaySeconds":0},` +
+			`{"Id":"second","MessageBody":"second message","DelaySeconds":0},` +
+			`{"Id":"delay","MessageBody":"invalid delay","DelaySeconds":901},` +
+			`{"Id":"contents","MessageBody":"invalid\u0001"},` +
+			`{"Id":"missing"},` +
+			`{"Id":"empty","MessageBody":""},` +
+			`{"Id":"attributes","MessageBody":"unsupported","MessageAttributes":{"a":{"DataType":"String","StringValue":"x"}}}]}`
+		res, body := requestSQS(t, c, addr, "SendMessageBatch", request)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		var response struct {
+			Successful []struct {
+				ID        string `json:"Id"`
+				MessageID string `json:"MessageId"`
+				MD5       string `json:"MD5OfMessageBody"`
+			} `json:"Successful"`
+			Failed []struct {
+				ID          string `json:"Id"`
+				Code        string `json:"Code"`
+				Message     string `json:"Message"`
+				SenderFault bool   `json:"SenderFault"`
+			} `json:"Failed"`
+		}
+		require.NoError(t, json.Unmarshal(body, &response))
+		require.Len(t, response.Successful, 2)
+		for _, entry := range response.Successful {
+			require.Contains(t, map[string]string{"first": "first message", "second": "second message"}, entry.ID)
+			require.NotEmpty(t, entry.MessageID)
+			digest := md5.Sum([]byte(entry.ID + " message"))
+			assert.Equal(t, fmt.Sprintf("%x", digest), entry.MD5)
+			batchIDs[entry.ID] = entry.MessageID
+		}
+		require.Len(t, batchIDs, 2)
+		require.NotEqual(t, batchIDs["first"], batchIDs["second"])
+		require.Len(t, response.Failed, 5)
+		expected := map[string]string{
+			"delay": "InvalidParameterValue", "contents": "InvalidMessageContents",
+			"missing": "InvalidParameterValue", "empty": "InvalidParameterValue", "attributes": "UnsupportedOperation",
+		}
+		for _, entry := range response.Failed {
+			assert.Equal(t, expected[entry.ID], entry.Code)
+			assert.NotEmpty(t, entry.Message)
+			assert.True(t, entry.SenderFault)
+			delete(expected, entry.ID)
+		}
+		assert.Empty(t, expected)
+	})
+	var batchReceipts []string
+	t.Run(`ReceiveMessageBatchResults`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "ReceiveMessage", `{"QueueUrl":"`+queueURL+`","MaxNumberOfMessages":10}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		var response struct {
+			Messages []struct {
+				MessageID     string `json:"MessageId"`
+				ReceiptHandle string `json:"ReceiptHandle"`
+				Body          string `json:"Body"`
+			} `json:"Messages"`
+		}
+		require.NoError(t, json.Unmarshal(body, &response))
+		require.Len(t, response.Messages, 2)
+		seen := map[string]bool{}
+		for _, message := range response.Messages {
+			seen[message.Body] = true
+			switch message.Body {
+			case "first message":
+				assert.Equal(t, batchIDs["first"], message.MessageID)
+			case "second message":
+				assert.Equal(t, batchIDs["second"], message.MessageID)
+			default:
+				t.Errorf("unexpected message body: %q", message.Body)
+			}
+			require.NotEmpty(t, message.ReceiptHandle)
+			batchReceipts = append(batchReceipts, message.ReceiptHandle)
+		}
+		require.Len(t, seen, 2)
+	})
+	t.Run(`DeleteMessageBatchResults`, func(t *testing.T) {
+		for _, receipt := range batchReceipts {
+			res, body := requestSQS(t, c, addr, "DeleteMessage", `{"QueueUrl":"`+queueURL+`","ReceiptHandle":"`+receipt+`"}`)
+			require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		}
+	})
+	t.Run(`SendMessageWithZeroDelay`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "SendMessage", `{"QueueUrl":"`+queueURL+`","MessageBody":"no delay","DelaySeconds":0}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		var response struct {
+			MessageID string `json:"MessageId"`
+		}
+		require.NoError(t, json.Unmarshal(body, &response))
+		require.NotEmpty(t, response.MessageID)
+		messageID = response.MessageID
+	})
+	t.Run(`ReceiveMessageWithZeroDelay`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "ReceiveMessage", `{"QueueUrl":"`+queueURL+`"}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		var response struct {
+			Messages []struct {
+				MessageID     string `json:"MessageId"`
+				ReceiptHandle string `json:"ReceiptHandle"`
+			} `json:"Messages"`
+		}
+		require.NoError(t, json.Unmarshal(body, &response))
+		require.Len(t, response.Messages, 1)
+		assert.Equal(t, messageID, response.Messages[0].MessageID)
+		require.NotEmpty(t, response.Messages[0].ReceiptHandle)
+		receiptHandle = response.Messages[0].ReceiptHandle
+	})
+	t.Run(`DeleteMessageWithZeroDelay`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "DeleteMessage", `{"QueueUrl":"`+queueURL+`","ReceiptHandle":"`+receiptHandle+`"}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+	})
+	t.Run(`ResetQueueDelayAfterBatch`, func(t *testing.T) {
 		res, body := requestSQS(t, c, addr, "SetQueueAttributes", `{"QueueUrl":"`+queueURL+`","Attributes":{"DelaySeconds":"0"}}`)
 		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
 	})

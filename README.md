@@ -9,6 +9,10 @@ A distributed queue that's mostly API compatible with [SQS](https://docs.aws.ama
 
 Basic functionality is WIP.
 
+`SendMessageBatch` supports standard-queue message bodies and delays, including
+per-entry failures. Message attributes, system attributes, and FIFO fields are
+not yet supported and are rejected for batch entries.
+
 Not included in basic functionality:
 - Queue Tags
 - Permissions

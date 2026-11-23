@@ -79,11 +79,44 @@ message SendMessageRequest {
   string QueueName = 1;
   string MessageBody = 2;
   uint64 DelaySeconds = 3;
+  bool DelaySecondsSet = 4;
 }
 
 message SendMessageResponse {
   string MessageId = 1;
   string Md5OfMessageBody = 2;
+}
+
+message SendMessageBatchRequest {
+  string QueueName = 1;
+  repeated SendMessageBatchRequestEntry Entries = 2;
+}
+
+message SendMessageBatchRequestEntry {
+  string Id = 1;
+  string MessageBody = 2;
+  uint64 DelaySeconds = 3;
+  bool DelaySecondsSet = 4;
+  bool MessageBodySet = 5;
+  bool UnsupportedFields = 6;
+}
+
+message SendMessageBatchResultEntry {
+  string Id = 1;
+  string MessageId = 2;
+  string Md5OfMessageBody = 3;
+}
+
+message BatchResultErrorEntry {
+  string Id = 1;
+  string Code = 2;
+  string Message = 3;
+  bool SenderFault = 4;
+}
+
+message SendMessageBatchResponse {
+  repeated SendMessageBatchResultEntry Successful = 1;
+  repeated BatchResultErrorEntry Failed = 2;
 }
 
 message ReceiveMessageRequest {

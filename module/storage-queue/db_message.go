@@ -39,7 +39,7 @@ func (db dbMessageImpl) init(txn mdb.Txn) {
 }
 
 func (db dbMessageImpl) send(txn mdb.Txn, req *pb.SendMessageRequest, epoch uint64) (*pb.SendMessageResponse, error) {
-	if !utf8.ValidString(req.MessageBody) {
+	if !validMessageBody(req.MessageBody) {
 		return nil, ErrMessageBodyInvalid
 	}
 	if uint64(len(req.MessageBody)) > globals.MAX_MESSAGE_SIZE() {
@@ -64,8 +64,11 @@ func (db dbMessageImpl) send(txn mdb.Txn, req *pb.SendMessageRequest, epoch uint
 		return nil, ErrMessageBodyTooLarge
 	}
 	delay := req.DelaySeconds
-	if delay == 0 {
-		delay, _ = strconv.ParseUint(attributes["DelaySeconds"], 10, 64)
+	if delay == 0 && !req.DelaySecondsSet {
+		delay, err = strconv.ParseUint(attributes["DelaySeconds"], 10, 64)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if delay > globals.MAX_DELAY_TIME() {
 		return nil, ErrMessageDelayInvalid
@@ -121,6 +124,104 @@ func (db dbMessageImpl) send(txn mdb.Txn, req *pb.SendMessageRequest, epoch uint
 		MessageId:        hex.EncodeToString(messageIDBytes),
 		Md5OfMessageBody: hex.EncodeToString(digest[:]),
 	}, nil
+}
+
+func validMessageBody(body string) bool {
+	if body == "" || !utf8.ValidString(body) {
+		return false
+	}
+	for _, r := range body {
+		if r != '\t' && r != '\n' && r != '\r' &&
+			(r < 0x20 || r > 0x10ffff || r >= 0xd800 && r <= 0xdfff || r == 0xfffe || r == 0xffff) {
+			return false
+		}
+	}
+	return true
+}
+
+func (db dbMessageImpl) sendBatch(txn mdb.Txn, req *pb.SendMessageBatchRequest, epoch uint64) (*pb.SendMessageBatchResponse, string, error) {
+	if len(req.Entries) == 0 {
+		return nil, "EmptyBatchRequest", nil
+	}
+	if uint64(len(req.Entries)) > globals.MAX_MESSAGE_BATCH_SIZE() {
+		return nil, "TooManyEntriesInBatchRequest", nil
+	}
+	ids := make(map[string]bool, len(req.Entries))
+	var size uint64
+	for _, entry := range req.Entries {
+		if entry == nil || !validBatchID(entry.Id) {
+			return nil, "InvalidBatchEntryId", nil
+		}
+		if ids[entry.Id] {
+			return nil, "BatchEntryIdsNotDistinct", nil
+		}
+		ids[entry.Id] = true
+		size += uint64(len(entry.MessageBody))
+		if size > globals.MAX_MESSAGE_SIZE() {
+			return nil, "BatchRequestTooLong", nil
+		}
+	}
+	if _, err := dbQueue.getID(txn, []byte(req.QueueName)); err != nil {
+		if mdb.IsNotFound(err) {
+			return nil, "QueueDoesNotExist", nil
+		}
+		return nil, "", err
+	}
+	resp := &pb.SendMessageBatchResponse{}
+	err := txn.Sub(func(batchTxn mdb.Txn) error {
+		for _, entry := range req.Entries {
+			var code, message string
+			switch {
+			case entry.UnsupportedFields:
+				code, message = "UnsupportedOperation", "Message attributes and FIFO fields are not supported"
+			case !entry.MessageBodySet:
+				code, message = "InvalidParameterValue", "MessageBody is required"
+			case entry.MessageBody == "":
+				code, message = "InvalidParameterValue", "MessageBody must not be empty"
+			default:
+				sent, err := db.send(batchTxn, &pb.SendMessageRequest{
+					QueueName:       req.QueueName,
+					MessageBody:     entry.MessageBody,
+					DelaySeconds:    entry.DelaySeconds,
+					DelaySecondsSet: entry.DelaySecondsSet,
+				}, epoch)
+				switch err {
+				case nil:
+					resp.Successful = append(resp.Successful, &pb.SendMessageBatchResultEntry{
+						Id: entry.Id, MessageId: sent.MessageId, Md5OfMessageBody: sent.Md5OfMessageBody,
+					})
+				case ErrMessageBodyInvalid:
+					code, message = "InvalidMessageContents", err.Error()
+				case ErrMessageBodyTooLarge, ErrMessageDelayInvalid:
+					code, message = "InvalidParameterValue", err.Error()
+				default:
+					return err
+				}
+			}
+			if code != "" {
+				resp.Failed = append(resp.Failed, &pb.BatchResultErrorEntry{
+					Id: entry.Id, Code: code, Message: message, SenderFault: true,
+				})
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, "", err
+	}
+	return resp, "", nil
+}
+
+func validBatchID(id string) bool {
+	if len(id) == 0 || len(id) > 80 {
+		return false
+	}
+	for _, ch := range id {
+		if !(ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z' || ch >= '0' && ch <= '9' || ch == '-' || ch == '_') {
+			return false
+		}
+	}
+	return true
 }
 
 func (db dbMessageImpl) receive(txn mdb.Txn, req *pb.ReceiveMessageRequest, epoch uint64) (*pb.ReceiveMessageResponse, error) {

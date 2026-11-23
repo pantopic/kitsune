@@ -358,10 +358,11 @@ func (x *QueueProperties) GetAttributes() map[string]string {
 }
 
 type SendMessageRequest struct {
-	unknownFields []byte
-	QueueName     string `protobuf:"bytes,1,opt,name=QueueName,proto3" json:"QueueName,omitempty"`
-	MessageBody   string `protobuf:"bytes,2,opt,name=MessageBody,proto3" json:"MessageBody,omitempty"`
-	DelaySeconds  uint64 `protobuf:"varint,3,opt,name=DelaySeconds,proto3" json:"DelaySeconds,omitempty"`
+	unknownFields   []byte
+	QueueName       string `protobuf:"bytes,1,opt,name=QueueName,proto3" json:"QueueName,omitempty"`
+	MessageBody     string `protobuf:"bytes,2,opt,name=MessageBody,proto3" json:"MessageBody,omitempty"`
+	DelaySeconds    uint64 `protobuf:"varint,3,opt,name=DelaySeconds,proto3" json:"DelaySeconds,omitempty"`
+	DelaySecondsSet bool   `protobuf:"varint,4,opt,name=DelaySecondsSet,proto3" json:"DelaySecondsSet,omitempty"`
 }
 
 func (x *SendMessageRequest) Reset() {
@@ -391,6 +392,13 @@ func (x *SendMessageRequest) GetDelaySeconds() uint64 {
 	return 0
 }
 
+func (x *SendMessageRequest) GetDelaySecondsSet() bool {
+	if x != nil {
+		return x.DelaySecondsSet
+	}
+	return false
+}
+
 type SendMessageResponse struct {
 	unknownFields    []byte
 	MessageId        string `protobuf:"bytes,1,opt,name=MessageId,proto3" json:"MessageId,omitempty"`
@@ -415,6 +423,192 @@ func (x *SendMessageResponse) GetMd5OfMessageBody() string {
 		return x.Md5OfMessageBody
 	}
 	return ""
+}
+
+type SendMessageBatchRequest struct {
+	unknownFields []byte
+	QueueName     string                          `protobuf:"bytes,1,opt,name=QueueName,proto3" json:"QueueName,omitempty"`
+	Entries       []*SendMessageBatchRequestEntry `protobuf:"bytes,2,rep,name=Entries,proto3" json:"Entries,omitempty"`
+}
+
+func (x *SendMessageBatchRequest) Reset() {
+	*x = SendMessageBatchRequest{}
+}
+
+func (*SendMessageBatchRequest) ProtoMessage() {}
+
+func (x *SendMessageBatchRequest) GetQueueName() string {
+	if x != nil {
+		return x.QueueName
+	}
+	return ""
+}
+
+func (x *SendMessageBatchRequest) GetEntries() []*SendMessageBatchRequestEntry {
+	if x != nil {
+		return x.Entries
+	}
+	return nil
+}
+
+type SendMessageBatchRequestEntry struct {
+	unknownFields     []byte
+	Id                string `protobuf:"bytes,1,opt,name=Id,proto3" json:"Id,omitempty"`
+	MessageBody       string `protobuf:"bytes,2,opt,name=MessageBody,proto3" json:"MessageBody,omitempty"`
+	DelaySeconds      uint64 `protobuf:"varint,3,opt,name=DelaySeconds,proto3" json:"DelaySeconds,omitempty"`
+	DelaySecondsSet   bool   `protobuf:"varint,4,opt,name=DelaySecondsSet,proto3" json:"DelaySecondsSet,omitempty"`
+	MessageBodySet    bool   `protobuf:"varint,5,opt,name=MessageBodySet,proto3" json:"MessageBodySet,omitempty"`
+	UnsupportedFields bool   `protobuf:"varint,6,opt,name=UnsupportedFields,proto3" json:"UnsupportedFields,omitempty"`
+}
+
+func (x *SendMessageBatchRequestEntry) Reset() {
+	*x = SendMessageBatchRequestEntry{}
+}
+
+func (*SendMessageBatchRequestEntry) ProtoMessage() {}
+
+func (x *SendMessageBatchRequestEntry) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *SendMessageBatchRequestEntry) GetMessageBody() string {
+	if x != nil {
+		return x.MessageBody
+	}
+	return ""
+}
+
+func (x *SendMessageBatchRequestEntry) GetDelaySeconds() uint64 {
+	if x != nil {
+		return x.DelaySeconds
+	}
+	return 0
+}
+
+func (x *SendMessageBatchRequestEntry) GetDelaySecondsSet() bool {
+	if x != nil {
+		return x.DelaySecondsSet
+	}
+	return false
+}
+
+func (x *SendMessageBatchRequestEntry) GetMessageBodySet() bool {
+	if x != nil {
+		return x.MessageBodySet
+	}
+	return false
+}
+
+func (x *SendMessageBatchRequestEntry) GetUnsupportedFields() bool {
+	if x != nil {
+		return x.UnsupportedFields
+	}
+	return false
+}
+
+type SendMessageBatchResultEntry struct {
+	unknownFields    []byte
+	Id               string `protobuf:"bytes,1,opt,name=Id,proto3" json:"Id,omitempty"`
+	MessageId        string `protobuf:"bytes,2,opt,name=MessageId,proto3" json:"MessageId,omitempty"`
+	Md5OfMessageBody string `protobuf:"bytes,3,opt,name=Md5OfMessageBody,proto3" json:"Md5OfMessageBody,omitempty"`
+}
+
+func (x *SendMessageBatchResultEntry) Reset() {
+	*x = SendMessageBatchResultEntry{}
+}
+
+func (*SendMessageBatchResultEntry) ProtoMessage() {}
+
+func (x *SendMessageBatchResultEntry) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *SendMessageBatchResultEntry) GetMessageId() string {
+	if x != nil {
+		return x.MessageId
+	}
+	return ""
+}
+
+func (x *SendMessageBatchResultEntry) GetMd5OfMessageBody() string {
+	if x != nil {
+		return x.Md5OfMessageBody
+	}
+	return ""
+}
+
+type BatchResultErrorEntry struct {
+	unknownFields []byte
+	Id            string `protobuf:"bytes,1,opt,name=Id,proto3" json:"Id,omitempty"`
+	Code          string `protobuf:"bytes,2,opt,name=Code,proto3" json:"Code,omitempty"`
+	Message       string `protobuf:"bytes,3,opt,name=Message,proto3" json:"Message,omitempty"`
+	SenderFault   bool   `protobuf:"varint,4,opt,name=SenderFault,proto3" json:"SenderFault,omitempty"`
+}
+
+func (x *BatchResultErrorEntry) Reset() {
+	*x = BatchResultErrorEntry{}
+}
+
+func (*BatchResultErrorEntry) ProtoMessage() {}
+
+func (x *BatchResultErrorEntry) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *BatchResultErrorEntry) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+func (x *BatchResultErrorEntry) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *BatchResultErrorEntry) GetSenderFault() bool {
+	if x != nil {
+		return x.SenderFault
+	}
+	return false
+}
+
+type SendMessageBatchResponse struct {
+	unknownFields []byte
+	Successful    []*SendMessageBatchResultEntry `protobuf:"bytes,1,rep,name=Successful,proto3" json:"Successful,omitempty"`
+	Failed        []*BatchResultErrorEntry       `protobuf:"bytes,2,rep,name=Failed,proto3" json:"Failed,omitempty"`
+}
+
+func (x *SendMessageBatchResponse) Reset() {
+	*x = SendMessageBatchResponse{}
+}
+
+func (*SendMessageBatchResponse) ProtoMessage() {}
+
+func (x *SendMessageBatchResponse) GetSuccessful() []*SendMessageBatchResultEntry {
+	if x != nil {
+		return x.Successful
+	}
+	return nil
+}
+
+func (x *SendMessageBatchResponse) GetFailed() []*BatchResultErrorEntry {
+	if x != nil {
+		return x.Failed
+	}
+	return nil
 }
 
 type ReceiveMessageRequest struct {
@@ -1766,6 +1960,11 @@ func (x *SendMessageRequest) MarshalProtoJSON(s *json.MarshalState) {
 		s.WriteObjectField("DelaySeconds")
 		s.WriteUint64(x.DelaySeconds)
 	}
+	if x.DelaySecondsSet || s.HasField("DelaySecondsSet") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("DelaySecondsSet")
+		s.WriteBool(x.DelaySecondsSet)
+	}
 	s.WriteObjectEnd()
 }
 
@@ -1792,6 +1991,9 @@ func (x *SendMessageRequest) UnmarshalProtoJSON(s *json.UnmarshalState) {
 		case "DelaySeconds":
 			s.AddField("DelaySeconds")
 			x.DelaySeconds = s.ReadUint64()
+		case "DelaySecondsSet":
+			s.AddField("DelaySecondsSet")
+			x.DelaySecondsSet = s.ReadBool()
 		}
 	})
 }
@@ -1848,6 +2050,375 @@ func (x *SendMessageResponse) UnmarshalProtoJSON(s *json.UnmarshalState) {
 
 // UnmarshalJSON unmarshals the SendMessageResponse from JSON.
 func (x *SendMessageResponse) UnmarshalJSON(b []byte) error {
+	return json.DefaultUnmarshalerConfig.Unmarshal(b, x)
+}
+
+// MarshalProtoJSON marshals the SendMessageBatchRequest message to JSON.
+func (x *SendMessageBatchRequest) MarshalProtoJSON(s *json.MarshalState) {
+	if x == nil {
+		s.WriteNil()
+		return
+	}
+	s.WriteObjectStart()
+	var wroteField bool
+	if x.QueueName != "" || s.HasField("QueueName") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("QueueName")
+		s.WriteString(x.QueueName)
+	}
+	if len(x.Entries) > 0 || s.HasField("Entries") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("Entries")
+		s.WriteArrayStart()
+		var wroteElement bool
+		for _, element := range x.Entries {
+			s.WriteMoreIf(&wroteElement)
+			element.MarshalProtoJSON(s.WithField("Entries"))
+		}
+		s.WriteArrayEnd()
+	}
+	s.WriteObjectEnd()
+}
+
+// MarshalJSON marshals the SendMessageBatchRequest to JSON.
+func (x *SendMessageBatchRequest) MarshalJSON() ([]byte, error) {
+	return json.DefaultMarshalerConfig.Marshal(x)
+}
+
+// UnmarshalProtoJSON unmarshals the SendMessageBatchRequest message from JSON.
+func (x *SendMessageBatchRequest) UnmarshalProtoJSON(s *json.UnmarshalState) {
+	if s.ReadNil() {
+		return
+	}
+	s.ReadObject(func(key string) {
+		switch key {
+		default:
+			s.Skip() // ignore unknown field
+		case "QueueName":
+			s.AddField("QueueName")
+			x.QueueName = s.ReadString()
+		case "Entries":
+			s.AddField("Entries")
+			if s.ReadNil() {
+				x.Entries = nil
+				return
+			}
+			s.ReadArray(func() {
+				if s.ReadNil() {
+					x.Entries = append(x.Entries, nil)
+					return
+				}
+				v := &SendMessageBatchRequestEntry{}
+				v.UnmarshalProtoJSON(s.WithField("Entries", false))
+				if s.Err() != nil {
+					return
+				}
+				x.Entries = append(x.Entries, v)
+			})
+		}
+	})
+}
+
+// UnmarshalJSON unmarshals the SendMessageBatchRequest from JSON.
+func (x *SendMessageBatchRequest) UnmarshalJSON(b []byte) error {
+	return json.DefaultUnmarshalerConfig.Unmarshal(b, x)
+}
+
+// MarshalProtoJSON marshals the SendMessageBatchRequestEntry message to JSON.
+func (x *SendMessageBatchRequestEntry) MarshalProtoJSON(s *json.MarshalState) {
+	if x == nil {
+		s.WriteNil()
+		return
+	}
+	s.WriteObjectStart()
+	var wroteField bool
+	if x.Id != "" || s.HasField("Id") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("Id")
+		s.WriteString(x.Id)
+	}
+	if x.MessageBody != "" || s.HasField("MessageBody") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("MessageBody")
+		s.WriteString(x.MessageBody)
+	}
+	if x.DelaySeconds != 0 || s.HasField("DelaySeconds") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("DelaySeconds")
+		s.WriteUint64(x.DelaySeconds)
+	}
+	if x.DelaySecondsSet || s.HasField("DelaySecondsSet") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("DelaySecondsSet")
+		s.WriteBool(x.DelaySecondsSet)
+	}
+	if x.MessageBodySet || s.HasField("MessageBodySet") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("MessageBodySet")
+		s.WriteBool(x.MessageBodySet)
+	}
+	if x.UnsupportedFields || s.HasField("UnsupportedFields") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("UnsupportedFields")
+		s.WriteBool(x.UnsupportedFields)
+	}
+	s.WriteObjectEnd()
+}
+
+// MarshalJSON marshals the SendMessageBatchRequestEntry to JSON.
+func (x *SendMessageBatchRequestEntry) MarshalJSON() ([]byte, error) {
+	return json.DefaultMarshalerConfig.Marshal(x)
+}
+
+// UnmarshalProtoJSON unmarshals the SendMessageBatchRequestEntry message from JSON.
+func (x *SendMessageBatchRequestEntry) UnmarshalProtoJSON(s *json.UnmarshalState) {
+	if s.ReadNil() {
+		return
+	}
+	s.ReadObject(func(key string) {
+		switch key {
+		default:
+			s.Skip() // ignore unknown field
+		case "Id":
+			s.AddField("Id")
+			x.Id = s.ReadString()
+		case "MessageBody":
+			s.AddField("MessageBody")
+			x.MessageBody = s.ReadString()
+		case "DelaySeconds":
+			s.AddField("DelaySeconds")
+			x.DelaySeconds = s.ReadUint64()
+		case "DelaySecondsSet":
+			s.AddField("DelaySecondsSet")
+			x.DelaySecondsSet = s.ReadBool()
+		case "MessageBodySet":
+			s.AddField("MessageBodySet")
+			x.MessageBodySet = s.ReadBool()
+		case "UnsupportedFields":
+			s.AddField("UnsupportedFields")
+			x.UnsupportedFields = s.ReadBool()
+		}
+	})
+}
+
+// UnmarshalJSON unmarshals the SendMessageBatchRequestEntry from JSON.
+func (x *SendMessageBatchRequestEntry) UnmarshalJSON(b []byte) error {
+	return json.DefaultUnmarshalerConfig.Unmarshal(b, x)
+}
+
+// MarshalProtoJSON marshals the SendMessageBatchResultEntry message to JSON.
+func (x *SendMessageBatchResultEntry) MarshalProtoJSON(s *json.MarshalState) {
+	if x == nil {
+		s.WriteNil()
+		return
+	}
+	s.WriteObjectStart()
+	var wroteField bool
+	if x.Id != "" || s.HasField("Id") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("Id")
+		s.WriteString(x.Id)
+	}
+	if x.MessageId != "" || s.HasField("MessageId") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("MessageId")
+		s.WriteString(x.MessageId)
+	}
+	if x.Md5OfMessageBody != "" || s.HasField("Md5OfMessageBody") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("Md5OfMessageBody")
+		s.WriteString(x.Md5OfMessageBody)
+	}
+	s.WriteObjectEnd()
+}
+
+// MarshalJSON marshals the SendMessageBatchResultEntry to JSON.
+func (x *SendMessageBatchResultEntry) MarshalJSON() ([]byte, error) {
+	return json.DefaultMarshalerConfig.Marshal(x)
+}
+
+// UnmarshalProtoJSON unmarshals the SendMessageBatchResultEntry message from JSON.
+func (x *SendMessageBatchResultEntry) UnmarshalProtoJSON(s *json.UnmarshalState) {
+	if s.ReadNil() {
+		return
+	}
+	s.ReadObject(func(key string) {
+		switch key {
+		default:
+			s.Skip() // ignore unknown field
+		case "Id":
+			s.AddField("Id")
+			x.Id = s.ReadString()
+		case "MessageId":
+			s.AddField("MessageId")
+			x.MessageId = s.ReadString()
+		case "Md5OfMessageBody":
+			s.AddField("Md5OfMessageBody")
+			x.Md5OfMessageBody = s.ReadString()
+		}
+	})
+}
+
+// UnmarshalJSON unmarshals the SendMessageBatchResultEntry from JSON.
+func (x *SendMessageBatchResultEntry) UnmarshalJSON(b []byte) error {
+	return json.DefaultUnmarshalerConfig.Unmarshal(b, x)
+}
+
+// MarshalProtoJSON marshals the BatchResultErrorEntry message to JSON.
+func (x *BatchResultErrorEntry) MarshalProtoJSON(s *json.MarshalState) {
+	if x == nil {
+		s.WriteNil()
+		return
+	}
+	s.WriteObjectStart()
+	var wroteField bool
+	if x.Id != "" || s.HasField("Id") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("Id")
+		s.WriteString(x.Id)
+	}
+	if x.Code != "" || s.HasField("Code") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("Code")
+		s.WriteString(x.Code)
+	}
+	if x.Message != "" || s.HasField("Message") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("Message")
+		s.WriteString(x.Message)
+	}
+	if x.SenderFault || s.HasField("SenderFault") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("SenderFault")
+		s.WriteBool(x.SenderFault)
+	}
+	s.WriteObjectEnd()
+}
+
+// MarshalJSON marshals the BatchResultErrorEntry to JSON.
+func (x *BatchResultErrorEntry) MarshalJSON() ([]byte, error) {
+	return json.DefaultMarshalerConfig.Marshal(x)
+}
+
+// UnmarshalProtoJSON unmarshals the BatchResultErrorEntry message from JSON.
+func (x *BatchResultErrorEntry) UnmarshalProtoJSON(s *json.UnmarshalState) {
+	if s.ReadNil() {
+		return
+	}
+	s.ReadObject(func(key string) {
+		switch key {
+		default:
+			s.Skip() // ignore unknown field
+		case "Id":
+			s.AddField("Id")
+			x.Id = s.ReadString()
+		case "Code":
+			s.AddField("Code")
+			x.Code = s.ReadString()
+		case "Message":
+			s.AddField("Message")
+			x.Message = s.ReadString()
+		case "SenderFault":
+			s.AddField("SenderFault")
+			x.SenderFault = s.ReadBool()
+		}
+	})
+}
+
+// UnmarshalJSON unmarshals the BatchResultErrorEntry from JSON.
+func (x *BatchResultErrorEntry) UnmarshalJSON(b []byte) error {
+	return json.DefaultUnmarshalerConfig.Unmarshal(b, x)
+}
+
+// MarshalProtoJSON marshals the SendMessageBatchResponse message to JSON.
+func (x *SendMessageBatchResponse) MarshalProtoJSON(s *json.MarshalState) {
+	if x == nil {
+		s.WriteNil()
+		return
+	}
+	s.WriteObjectStart()
+	var wroteField bool
+	if len(x.Successful) > 0 || s.HasField("Successful") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("Successful")
+		s.WriteArrayStart()
+		var wroteElement bool
+		for _, element := range x.Successful {
+			s.WriteMoreIf(&wroteElement)
+			element.MarshalProtoJSON(s.WithField("Successful"))
+		}
+		s.WriteArrayEnd()
+	}
+	if len(x.Failed) > 0 || s.HasField("Failed") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("Failed")
+		s.WriteArrayStart()
+		var wroteElement bool
+		for _, element := range x.Failed {
+			s.WriteMoreIf(&wroteElement)
+			element.MarshalProtoJSON(s.WithField("Failed"))
+		}
+		s.WriteArrayEnd()
+	}
+	s.WriteObjectEnd()
+}
+
+// MarshalJSON marshals the SendMessageBatchResponse to JSON.
+func (x *SendMessageBatchResponse) MarshalJSON() ([]byte, error) {
+	return json.DefaultMarshalerConfig.Marshal(x)
+}
+
+// UnmarshalProtoJSON unmarshals the SendMessageBatchResponse message from JSON.
+func (x *SendMessageBatchResponse) UnmarshalProtoJSON(s *json.UnmarshalState) {
+	if s.ReadNil() {
+		return
+	}
+	s.ReadObject(func(key string) {
+		switch key {
+		default:
+			s.Skip() // ignore unknown field
+		case "Successful":
+			s.AddField("Successful")
+			if s.ReadNil() {
+				x.Successful = nil
+				return
+			}
+			s.ReadArray(func() {
+				if s.ReadNil() {
+					x.Successful = append(x.Successful, nil)
+					return
+				}
+				v := &SendMessageBatchResultEntry{}
+				v.UnmarshalProtoJSON(s.WithField("Successful", false))
+				if s.Err() != nil {
+					return
+				}
+				x.Successful = append(x.Successful, v)
+			})
+		case "Failed":
+			s.AddField("Failed")
+			if s.ReadNil() {
+				x.Failed = nil
+				return
+			}
+			s.ReadArray(func() {
+				if s.ReadNil() {
+					x.Failed = append(x.Failed, nil)
+					return
+				}
+				v := &BatchResultErrorEntry{}
+				v.UnmarshalProtoJSON(s.WithField("Failed", false))
+				if s.Err() != nil {
+					return
+				}
+				x.Failed = append(x.Failed, v)
+			})
+		}
+	})
+}
+
+// UnmarshalJSON unmarshals the SendMessageBatchResponse from JSON.
+func (x *SendMessageBatchResponse) UnmarshalJSON(b []byte) error {
 	return json.DefaultUnmarshalerConfig.Unmarshal(b, x)
 }
 
@@ -2949,6 +3520,11 @@ func (m *SendMessageRequest) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 	if m.unknownFields != nil {
 		i = protobuf_go_lite.EncodeRawBytes(dAtA, i, m.unknownFields)
 	}
+	if m.DelaySecondsSet {
+		i = protobuf_go_lite.EncodeBool(dAtA, i, m.DelaySecondsSet)
+		i--
+		dAtA[i] = 0x20
+	}
 	if m.DelaySeconds != 0 {
 		i = protobuf_go_lite.EncodeVarint(dAtA, i, uint64(m.DelaySeconds))
 		i--
@@ -3005,6 +3581,272 @@ func (m *SendMessageResponse) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 		i = protobuf_go_lite.EncodeString(dAtA, i, m.MessageId)
 		i--
 		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *SendMessageBatchRequest) MarshalVT() (dAtA []byte, err error) {
+	if m == nil {
+		return nil, nil
+	}
+	size := m.SizeVT()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBufferVT(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *SendMessageBatchRequest) MarshalToVT(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVT(dAtA[:size])
+}
+
+func (m *SendMessageBatchRequest) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
+	if m == nil {
+		return 0, nil
+	}
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.unknownFields != nil {
+		i = protobuf_go_lite.EncodeRawBytes(dAtA, i, m.unknownFields)
+	}
+	if len(m.Entries) > 0 {
+		for iNdEx := len(m.Entries) - 1; iNdEx >= 0; iNdEx-- {
+			size, err := m.Entries[iNdEx].MarshalToSizedBufferVT(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = protobuf_go_lite.EncodeVarint(dAtA, i, uint64(size))
+			i--
+			dAtA[i] = 0x12
+		}
+	}
+	if len(m.QueueName) > 0 {
+		i = protobuf_go_lite.EncodeString(dAtA, i, m.QueueName)
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *SendMessageBatchRequestEntry) MarshalVT() (dAtA []byte, err error) {
+	if m == nil {
+		return nil, nil
+	}
+	size := m.SizeVT()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBufferVT(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *SendMessageBatchRequestEntry) MarshalToVT(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVT(dAtA[:size])
+}
+
+func (m *SendMessageBatchRequestEntry) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
+	if m == nil {
+		return 0, nil
+	}
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.unknownFields != nil {
+		i = protobuf_go_lite.EncodeRawBytes(dAtA, i, m.unknownFields)
+	}
+	if m.UnsupportedFields {
+		i = protobuf_go_lite.EncodeBool(dAtA, i, m.UnsupportedFields)
+		i--
+		dAtA[i] = 0x30
+	}
+	if m.MessageBodySet {
+		i = protobuf_go_lite.EncodeBool(dAtA, i, m.MessageBodySet)
+		i--
+		dAtA[i] = 0x28
+	}
+	if m.DelaySecondsSet {
+		i = protobuf_go_lite.EncodeBool(dAtA, i, m.DelaySecondsSet)
+		i--
+		dAtA[i] = 0x20
+	}
+	if m.DelaySeconds != 0 {
+		i = protobuf_go_lite.EncodeVarint(dAtA, i, uint64(m.DelaySeconds))
+		i--
+		dAtA[i] = 0x18
+	}
+	if len(m.MessageBody) > 0 {
+		i = protobuf_go_lite.EncodeString(dAtA, i, m.MessageBody)
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Id) > 0 {
+		i = protobuf_go_lite.EncodeString(dAtA, i, m.Id)
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *SendMessageBatchResultEntry) MarshalVT() (dAtA []byte, err error) {
+	if m == nil {
+		return nil, nil
+	}
+	size := m.SizeVT()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBufferVT(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *SendMessageBatchResultEntry) MarshalToVT(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVT(dAtA[:size])
+}
+
+func (m *SendMessageBatchResultEntry) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
+	if m == nil {
+		return 0, nil
+	}
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.unknownFields != nil {
+		i = protobuf_go_lite.EncodeRawBytes(dAtA, i, m.unknownFields)
+	}
+	if len(m.Md5OfMessageBody) > 0 {
+		i = protobuf_go_lite.EncodeString(dAtA, i, m.Md5OfMessageBody)
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.MessageId) > 0 {
+		i = protobuf_go_lite.EncodeString(dAtA, i, m.MessageId)
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Id) > 0 {
+		i = protobuf_go_lite.EncodeString(dAtA, i, m.Id)
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *BatchResultErrorEntry) MarshalVT() (dAtA []byte, err error) {
+	if m == nil {
+		return nil, nil
+	}
+	size := m.SizeVT()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBufferVT(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *BatchResultErrorEntry) MarshalToVT(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVT(dAtA[:size])
+}
+
+func (m *BatchResultErrorEntry) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
+	if m == nil {
+		return 0, nil
+	}
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.unknownFields != nil {
+		i = protobuf_go_lite.EncodeRawBytes(dAtA, i, m.unknownFields)
+	}
+	if m.SenderFault {
+		i = protobuf_go_lite.EncodeBool(dAtA, i, m.SenderFault)
+		i--
+		dAtA[i] = 0x20
+	}
+	if len(m.Message) > 0 {
+		i = protobuf_go_lite.EncodeString(dAtA, i, m.Message)
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.Code) > 0 {
+		i = protobuf_go_lite.EncodeString(dAtA, i, m.Code)
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Id) > 0 {
+		i = protobuf_go_lite.EncodeString(dAtA, i, m.Id)
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *SendMessageBatchResponse) MarshalVT() (dAtA []byte, err error) {
+	if m == nil {
+		return nil, nil
+	}
+	size := m.SizeVT()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBufferVT(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *SendMessageBatchResponse) MarshalToVT(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVT(dAtA[:size])
+}
+
+func (m *SendMessageBatchResponse) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
+	if m == nil {
+		return 0, nil
+	}
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.unknownFields != nil {
+		i = protobuf_go_lite.EncodeRawBytes(dAtA, i, m.unknownFields)
+	}
+	if len(m.Failed) > 0 {
+		for iNdEx := len(m.Failed) - 1; iNdEx >= 0; iNdEx-- {
+			size, err := m.Failed[iNdEx].MarshalToSizedBufferVT(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = protobuf_go_lite.EncodeVarint(dAtA, i, uint64(size))
+			i--
+			dAtA[i] = 0x12
+		}
+	}
+	if len(m.Successful) > 0 {
+		for iNdEx := len(m.Successful) - 1; iNdEx >= 0; iNdEx-- {
+			size, err := m.Successful[iNdEx].MarshalToSizedBufferVT(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = protobuf_go_lite.EncodeVarint(dAtA, i, uint64(size))
+			i--
+			dAtA[i] = 0xa
+		}
 	}
 	return len(dAtA) - i, nil
 }
@@ -3519,6 +4361,7 @@ func (m *SendMessageRequest) SizeVT() (n int) {
 	n += protobuf_go_lite.SizeStringNonEmpty(1, m.QueueName)
 	n += protobuf_go_lite.SizeStringNonEmpty(1, m.MessageBody)
 	n += protobuf_go_lite.SizeVarintNonZero(1, m.DelaySeconds)
+	n += protobuf_go_lite.SizeBoolNonZero(1, m.DelaySecondsSet)
 	n += len(m.unknownFields)
 	return n
 }
@@ -3531,6 +4374,82 @@ func (m *SendMessageResponse) SizeVT() (n int) {
 	_ = l
 	n += protobuf_go_lite.SizeStringNonEmpty(1, m.MessageId)
 	n += protobuf_go_lite.SizeStringNonEmpty(1, m.Md5OfMessageBody)
+	n += len(m.unknownFields)
+	return n
+}
+
+func (m *SendMessageBatchRequest) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	n += protobuf_go_lite.SizeStringNonEmpty(1, m.QueueName)
+	for _, e := range m.Entries {
+		l = e.SizeVT()
+		n += protobuf_go_lite.SizeMessage(1, l)
+	}
+	n += len(m.unknownFields)
+	return n
+}
+
+func (m *SendMessageBatchRequestEntry) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	n += protobuf_go_lite.SizeStringNonEmpty(1, m.Id)
+	n += protobuf_go_lite.SizeStringNonEmpty(1, m.MessageBody)
+	n += protobuf_go_lite.SizeVarintNonZero(1, m.DelaySeconds)
+	n += protobuf_go_lite.SizeBoolNonZero(1, m.DelaySecondsSet)
+	n += protobuf_go_lite.SizeBoolNonZero(1, m.MessageBodySet)
+	n += protobuf_go_lite.SizeBoolNonZero(1, m.UnsupportedFields)
+	n += len(m.unknownFields)
+	return n
+}
+
+func (m *SendMessageBatchResultEntry) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	n += protobuf_go_lite.SizeStringNonEmpty(1, m.Id)
+	n += protobuf_go_lite.SizeStringNonEmpty(1, m.MessageId)
+	n += protobuf_go_lite.SizeStringNonEmpty(1, m.Md5OfMessageBody)
+	n += len(m.unknownFields)
+	return n
+}
+
+func (m *BatchResultErrorEntry) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	n += protobuf_go_lite.SizeStringNonEmpty(1, m.Id)
+	n += protobuf_go_lite.SizeStringNonEmpty(1, m.Code)
+	n += protobuf_go_lite.SizeStringNonEmpty(1, m.Message)
+	n += protobuf_go_lite.SizeBoolNonZero(1, m.SenderFault)
+	n += len(m.unknownFields)
+	return n
+}
+
+func (m *SendMessageBatchResponse) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	for _, e := range m.Successful {
+		l = e.SizeVT()
+		n += protobuf_go_lite.SizeMessage(1, l)
+	}
+	for _, e := range m.Failed {
+		l = e.SizeVT()
+		n += protobuf_go_lite.SizeMessage(1, l)
+	}
 	n += len(m.unknownFields)
 	return n
 }
@@ -4723,6 +5642,16 @@ func (m *SendMessageRequest) UnmarshalVT(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DelaySecondsSet", wireType)
+			}
+			var v bool
+			v, iNdEx, err = protobuf_go_lite.DecodeVarintBool(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			m.DelaySecondsSet = bool(v)
 		default:
 			iNdEx = preIndex
 			skippy, err := protobuf_go_lite.Skip(dAtA[iNdEx:])
@@ -4785,6 +5714,394 @@ func (m *SendMessageResponse) UnmarshalVT(dAtA []byte) error {
 				return err
 			}
 			m.Md5OfMessageBody = v
+		default:
+			iNdEx = preIndex
+			skippy, err := protobuf_go_lite.Skip(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return protobuf_go_lite.ErrInvalidLength
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.unknownFields = append(m.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *SendMessageBatchRequest) UnmarshalVT(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	var err error
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		wire, iNdEx, err = protobuf_go_lite.DecodeVarint(dAtA, iNdEx)
+		if err != nil {
+			return err
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: SendMessageBatchRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: SendMessageBatchRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field QueueName", wireType)
+			}
+			var v string
+			v, iNdEx, err = protobuf_go_lite.DecodeString(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			m.QueueName = v
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Entries", wireType)
+			}
+			msgStart, postIndex, err := protobuf_go_lite.DecodeLengthDelimited(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			m.Entries = append(m.Entries, &SendMessageBatchRequestEntry{})
+			if err := m.Entries[len(m.Entries)-1].UnmarshalVT(dAtA[msgStart:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := protobuf_go_lite.Skip(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return protobuf_go_lite.ErrInvalidLength
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.unknownFields = append(m.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *SendMessageBatchRequestEntry) UnmarshalVT(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	var err error
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		wire, iNdEx, err = protobuf_go_lite.DecodeVarint(dAtA, iNdEx)
+		if err != nil {
+			return err
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: SendMessageBatchRequestEntry: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: SendMessageBatchRequestEntry: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Id", wireType)
+			}
+			var v string
+			v, iNdEx, err = protobuf_go_lite.DecodeString(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			m.Id = v
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field MessageBody", wireType)
+			}
+			var v string
+			v, iNdEx, err = protobuf_go_lite.DecodeString(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			m.MessageBody = v
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DelaySeconds", wireType)
+			}
+			m.DelaySeconds = 0
+			m.DelaySeconds, iNdEx, err = protobuf_go_lite.DecodeVarint(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DelaySecondsSet", wireType)
+			}
+			var v bool
+			v, iNdEx, err = protobuf_go_lite.DecodeVarintBool(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			m.DelaySecondsSet = bool(v)
+		case 5:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field MessageBodySet", wireType)
+			}
+			var v bool
+			v, iNdEx, err = protobuf_go_lite.DecodeVarintBool(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			m.MessageBodySet = bool(v)
+		case 6:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field UnsupportedFields", wireType)
+			}
+			var v bool
+			v, iNdEx, err = protobuf_go_lite.DecodeVarintBool(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			m.UnsupportedFields = bool(v)
+		default:
+			iNdEx = preIndex
+			skippy, err := protobuf_go_lite.Skip(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return protobuf_go_lite.ErrInvalidLength
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.unknownFields = append(m.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *SendMessageBatchResultEntry) UnmarshalVT(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	var err error
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		wire, iNdEx, err = protobuf_go_lite.DecodeVarint(dAtA, iNdEx)
+		if err != nil {
+			return err
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: SendMessageBatchResultEntry: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: SendMessageBatchResultEntry: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Id", wireType)
+			}
+			var v string
+			v, iNdEx, err = protobuf_go_lite.DecodeString(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			m.Id = v
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field MessageId", wireType)
+			}
+			var v string
+			v, iNdEx, err = protobuf_go_lite.DecodeString(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			m.MessageId = v
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Md5OfMessageBody", wireType)
+			}
+			var v string
+			v, iNdEx, err = protobuf_go_lite.DecodeString(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			m.Md5OfMessageBody = v
+		default:
+			iNdEx = preIndex
+			skippy, err := protobuf_go_lite.Skip(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return protobuf_go_lite.ErrInvalidLength
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.unknownFields = append(m.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *BatchResultErrorEntry) UnmarshalVT(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	var err error
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		wire, iNdEx, err = protobuf_go_lite.DecodeVarint(dAtA, iNdEx)
+		if err != nil {
+			return err
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: BatchResultErrorEntry: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: BatchResultErrorEntry: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Id", wireType)
+			}
+			var v string
+			v, iNdEx, err = protobuf_go_lite.DecodeString(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			m.Id = v
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Code", wireType)
+			}
+			var v string
+			v, iNdEx, err = protobuf_go_lite.DecodeString(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			m.Code = v
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Message", wireType)
+			}
+			var v string
+			v, iNdEx, err = protobuf_go_lite.DecodeString(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			m.Message = v
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SenderFault", wireType)
+			}
+			var v bool
+			v, iNdEx, err = protobuf_go_lite.DecodeVarintBool(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			m.SenderFault = bool(v)
+		default:
+			iNdEx = preIndex
+			skippy, err := protobuf_go_lite.Skip(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return protobuf_go_lite.ErrInvalidLength
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.unknownFields = append(m.unknownFields, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *SendMessageBatchResponse) UnmarshalVT(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	var err error
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		wire, iNdEx, err = protobuf_go_lite.DecodeVarint(dAtA, iNdEx)
+		if err != nil {
+			return err
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: SendMessageBatchResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: SendMessageBatchResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Successful", wireType)
+			}
+			msgStart, postIndex, err := protobuf_go_lite.DecodeLengthDelimited(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			m.Successful = append(m.Successful, &SendMessageBatchResultEntry{})
+			if err := m.Successful[len(m.Successful)-1].UnmarshalVT(dAtA[msgStart:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Failed", wireType)
+			}
+			msgStart, postIndex, err := protobuf_go_lite.DecodeLengthDelimited(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			m.Failed = append(m.Failed, &BatchResultErrorEntry{})
+			if err := m.Failed[len(m.Failed)-1].UnmarshalVT(dAtA[msgStart:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := protobuf_go_lite.Skip(dAtA[iNdEx:])

@@ -104,6 +104,23 @@ func update(index uint64, c []byte) (value uint64, data []byte) {
 			return 500, []byte(err.Error())
 		}
 		value = 200
+	case cmd.MESSAGE_SEND_BATCH:
+		req := &pb.SendMessageBatchRequest{}
+		if err = req.UnmarshalVT(c[:len(c)-1]); err != nil {
+			return 400, []byte(`Invalid SendMessageBatch request`)
+		}
+		resp, errorCode, batchErr := dbMessage.sendBatch(txn, req, epoch)
+		if batchErr != nil {
+			return 500, []byte(batchErr.Error())
+		}
+		if errorCode != "" {
+			return 400, []byte(errorCode)
+		}
+		data, err = resp.MarshalVT()
+		if err != nil {
+			return 500, []byte(err.Error())
+		}
+		value = 200
 	case cmd.MESSAGE_DELETE:
 		req := &pb.DeleteMessageRequest{}
 		if err = req.UnmarshalVT(c[:len(c)-1]); err != nil {
