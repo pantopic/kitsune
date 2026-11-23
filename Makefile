@@ -23,7 +23,7 @@ test-cluster:
 	@CLUSTER_CHECK=true go test -v
 
 bench:
-	@go test -bench=. -run=_ -v
+	@cd test && go test -bench=. -run=^$$ -v
 
 unit:
 	@go test ./... -tags unit -v

@@ -11,6 +11,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -306,7 +307,49 @@ func TestAll(t *testing.T) {
 	// More tests go here
 }
 
-func requestSQS(t *testing.T, c *http.Client, addr, action, body string) (*http.Response, []byte) {
+func BenchmarkBasic(b *testing.B) {
+	c, addr := setup(b)
+	res, body := requestSQS(b, c, addr, "CreateQueue", `{"QueueName":"kitsune-benchmark"}`)
+	require.Equal(b, http.StatusOK, res.StatusCode, string(body))
+	var queue struct {
+		QueueURL string `json:"QueueUrl"`
+	}
+	require.NoError(b, json.Unmarshal(body, &queue))
+	require.NotEmpty(b, queue.QueueURL)
+
+	sendBody := `{"QueueUrl":"` + queue.QueueURL + `","MessageBody":"hello kitsune"}`
+	receiveBody := `{"QueueUrl":"` + queue.QueueURL + `"}`
+	for b.Loop() {
+		res, body = requestSQS(b, c, addr, "SendMessage", sendBody)
+		require.Equal(b, http.StatusOK, res.StatusCode, string(body))
+		var sent struct {
+			MessageID string `json:"MessageId"`
+		}
+		require.NoError(b, json.Unmarshal(body, &sent))
+		require.NotEmpty(b, sent.MessageID)
+
+		res, body = requestSQS(b, c, addr, "ReceiveMessage", receiveBody)
+		require.Equal(b, http.StatusOK, res.StatusCode, string(body))
+		var received struct {
+			Messages []struct {
+				MessageID     string `json:"MessageId"`
+				ReceiptHandle string `json:"ReceiptHandle"`
+				Body          string `json:"Body"`
+			} `json:"Messages"`
+		}
+		require.NoError(b, json.Unmarshal(body, &received))
+		require.Len(b, received.Messages, 1)
+		require.Equal(b, sent.MessageID, received.Messages[0].MessageID)
+		require.Equal(b, "hello kitsune", received.Messages[0].Body)
+		require.NotEmpty(b, received.Messages[0].ReceiptHandle)
+
+		deleteBody := `{"QueueUrl":"` + queue.QueueURL + `","ReceiptHandle":"` + received.Messages[0].ReceiptHandle + `"}`
+		res, body = requestSQS(b, c, addr, "DeleteMessage", deleteBody)
+		require.Equal(b, http.StatusOK, res.StatusCode, string(body))
+	}
+}
+
+func requestSQS(t testing.TB, c *http.Client, addr, action, body string) (*http.Response, []byte) {
 	t.Helper()
 	var res *http.Response
 	var err error
@@ -332,7 +375,32 @@ func postSQS(c *http.Client, addr, action, body string) (*http.Response, error) 
 	return c.Do(req)
 }
 
-func setup(t *testing.T) (*http.Client, string) {
+var (
+	setupOnce   sync.Once
+	setupClient *http.Client
+	setupAddr   string
+)
+
+func setup(t testing.TB) (*http.Client, string) {
+	t.Helper()
+	setupOnce.Do(func() {
+		setupClient, setupAddr = setupCluster(t)
+	})
+	require.NotNil(t, setupClient, "cluster setup failed")
+	return setupClient, setupAddr
+}
+
+func setupCluster(t testing.TB) (*http.Client, string) {
+	t.Helper()
+	run := func(t testing.TB, name string, fn func(testing.TB)) {
+		if test, ok := t.(*testing.T); ok {
+			if !test.Run(name, func(t *testing.T) { fn(t) }) {
+				test.FailNow()
+			}
+		} else {
+			fn(t)
+		}
+	}
 	var cfg = cluster.EnvConfig()
 	cfg.HostName = "127.0.0.1"
 	// cfg.LogLevel = "debug"
@@ -348,8 +416,8 @@ func setup(t *testing.T) (*http.Client, string) {
 		}
 		n = 0
 	)
-	os.RemoveAll(basedir)
-	start := func(t *testing.T, peers []string, class string, portSets ...[]uint16) {
+	require.NoError(t, os.RemoveAll(basedir))
+	start := func(peers []string, class string, portSets ...[]uint16) {
 		for i, ports := range portSets {
 			cfg := cfg
 			cfg.DirBlock = fmt.Sprintf(basedir+"/%d/block", n)
@@ -382,13 +450,13 @@ func setup(t *testing.T) (*http.Client, string) {
 		}
 		time.Sleep(time.Second)
 	}
-	t.Run(`start`, func(t *testing.T) {
-		start(t, peers, `storage`,
+	run(t, `start`, func(t testing.TB) {
+		start(peers, `storage`,
 			[]uint16{18011, 18012, 18013, 19010},
 			[]uint16{18021, 18022, 18023, 19020},
 			[]uint16{18031, 18032, 18033, 19030},
 		)
-		start(t, peers, `service`,
+		start(peers, `service`,
 			[]uint16{18111, 18112, 18113, 19040},
 		)
 	})
@@ -400,7 +468,7 @@ func setup(t *testing.T) (*http.Client, string) {
 	}), `%v`, host)
 	port := 19100
 	addr := fmt.Sprintf("localhost:%d", port)
-	t.Run(`provision`, func(t *testing.T) {
+	run(t, `provision`, func(t testing.TB) {
 		resource := &pb.Resource{
 			Namespace: "default",
 			Name:      "kitsune-test",
@@ -429,7 +497,7 @@ func setup(t *testing.T) (*http.Client, string) {
 				"placement:vary":   "geo:zone",
 			},
 		}
-		t.Run(`resource`, func(t *testing.T) {
+		run(t, `resource`, func(t testing.TB) {
 			putResp, err := ctrlClient.ResourcePut(ctx, &pb.ResourcePutRequest{
 				Item: resource,
 			})
@@ -439,7 +507,7 @@ func setup(t *testing.T) (*http.Client, string) {
 			require.Equal(t, resource.Name, putResp.Item.Name)
 			require.Equal(t, resource.Type, putResp.Item.Type)
 		})
-		t.Run(`service`, func(t *testing.T) {
+		run(t, `service`, func(t testing.TB) {
 			putResp, err := ctrlClient.ServicePut(ctx, &pb.ServicePutRequest{
 				Item: service,
 			})
@@ -449,7 +517,7 @@ func setup(t *testing.T) (*http.Client, string) {
 			require.Equal(t, service.Name, putResp.Item.Name)
 			require.Equal(t, service.Type, putResp.Item.Type)
 		})
-		t.Run(`component`, func(t *testing.T) {
+		run(t, `component`, func(t testing.TB) {
 			putResp, err := ctrlClient.ComponentPut(ctx, &pb.ComponentPutRequest{
 				Item: component,
 			})
@@ -460,8 +528,8 @@ func setup(t *testing.T) (*http.Client, string) {
 			require.Equal(t, component.Resource, putResp.Item.Resource)
 			require.Equal(t, component.Type, putResp.Item.Type)
 		})
-		t.Run(`active`, func(t *testing.T) {
-			t.Run(`service`, func(t *testing.T) {
+		run(t, `active`, func(t testing.TB) {
+			run(t, `service`, func(t testing.TB) {
 				svcListReq := &pb.ServiceListRequest{
 					Namespace: resource.Namespace,
 					Resource:  resource.Name,
@@ -478,7 +546,7 @@ func setup(t *testing.T) (*http.Client, string) {
 				require.Equal(t, 1, len(svcListResp.Item))
 				require.Equal(t, service.Type, svcListResp.Item[0].Type)
 			})
-			t.Run(`component`, func(t *testing.T) {
+			run(t, `component`, func(t testing.TB) {
 				compListReq := &pb.ComponentListRequest{
 					Namespace: resource.Namespace,
 					Resource:  resource.Name,
@@ -499,7 +567,7 @@ func setup(t *testing.T) (*http.Client, string) {
 	})
 	var c = &http.Client{}
 	var res *http.Response
-	t.Run(`healthcheck`, func(t *testing.T) {
+	run(t, `healthcheck`, func(t testing.TB) {
 		assert.True(t, await(5, 10, func() bool {
 			res, err = c.Get(fmt.Sprintf("http://%s/health", addr))
 			return err == nil && res.StatusCode == 200
@@ -515,7 +583,7 @@ func setup(t *testing.T) (*http.Client, string) {
 	return c, addr
 }
 
-func timeout(t *testing.T, d time.Duration, fn func()) {
+func timeout(t testing.TB, d time.Duration, fn func()) {
 	done := make(chan bool)
 	go func() {
 		fn()
