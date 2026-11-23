@@ -25,6 +25,7 @@ message ListQueuesRequest {
   uint64 MaxResults = 1;
   string NextToken = 2;
   string QueueNamePrefix = 3;
+  bool MaxResultsSet = 4;
 }
 
 message ListQueuesResponse {
@@ -43,6 +44,7 @@ message CreateQueueResponse {
 
 message QueueListResponse {
   repeated string QueueNames = 1;
+  string NextToken = 2;
 }
 
 message GetQueueUrlRequest {
@@ -124,6 +126,8 @@ message ReceiveMessageRequest {
   uint64 MaxNumberOfMessages = 2;
   uint64 VisibilityTimeout = 3;
   bool VisibilityTimeoutSet = 4;
+  uint64 WaitTimeSeconds = 5;
+  bool WaitTimeSecondsSet = 6;
 }
 
 message ReceivedMessage {
@@ -139,6 +143,27 @@ message ReceiveMessageResponse {
 message DeleteMessageRequest {
   string QueueName = 1;
   string ReceiptHandle = 2;
+}
+
+message MessageReceiptBatchRequest {
+  string QueueName = 1;
+  repeated MessageReceiptBatchRequestEntry Entries = 2;
+}
+
+message MessageReceiptBatchRequestEntry {
+  string Id = 1;
+  string ReceiptHandle = 2;
+  uint64 VisibilityTimeout = 3;
+  bool VisibilityTimeoutSet = 4;
+}
+
+message MessageReceiptBatchResultEntry {
+  string Id = 1;
+}
+
+message MessageReceiptBatchResponse {
+  repeated MessageReceiptBatchResultEntry Successful = 1;
+  repeated BatchResultErrorEntry Failed = 2;
 }
 
 message ChangeMessageVisibilityRequest {

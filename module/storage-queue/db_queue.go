@@ -242,14 +242,21 @@ func (db dbQueueImpl) purge(txn mdb.Txn, name []byte) error {
 	return db.stat.putUint64(txn, binary.BigEndian.AppendUint64(nil, id), 0)
 }
 
-func (db dbQueueImpl) list(txn mdb.Txn, prefix []byte, maxResults uint64) (names [][]byte, err error) {
+func (db dbQueueImpl) list(txn mdb.Txn, prefix, after []byte, maxResults uint64) (names [][]byte, err error) {
 	cur, err := txn.OpenCursor(db.id.i)
 	if err != nil {
 		return
 	}
 	defer cur.Close()
 
-	key, value, err := cur.Get(append([]byte(nil), prefix...), nil, mdb.SetRange)
+	start := prefix
+	if len(after) > 0 {
+		start = after
+	}
+	key, value, err := cur.Get(append([]byte(nil), start...), nil, mdb.SetRange)
+	if err == nil && len(after) > 0 && bytes.Equal(key, after) {
+		key, value, err = cur.Get(key, value, mdb.NextNoDup)
+	}
 	for !mdb.IsNotFound(err) {
 		if err != nil {
 			return nil, err

@@ -12,6 +12,13 @@ Basic functionality is WIP.
 `SendMessageBatch` supports standard-queue message bodies and delays, including
 per-entry failures. Message attributes, system attributes, and FIFO fields are
 not yet supported and are rejected for batch entries.
+`DeleteMessageBatch` and `ChangeMessageVisibilityBatch` support per-entry
+results for standard queues.
+`ListQueues` supports pagination when `MaxResults` is specified.
+Queue attributes include approximate visible, delayed, and in-flight counts.
+Message attributes and FIFO fields are rejected on single-message sends too.
+Long polling is not implemented: nonzero effective `WaitTimeSeconds` is
+rejected rather than silently treated as a short poll.
 
 New message deliveries use generation-bearing receipt handles. Existing active
 legacy handles are supported under their previous validity rules, but older

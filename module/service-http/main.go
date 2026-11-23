@@ -15,13 +15,18 @@ import (
 var (
 	bodyBuf        = make([]byte, 1<<20)
 	request        = &pb.Request{}
-	reqListQueues  = &pb.ListQueuesRequest{}
 	reqCreateQueue = &pb.CreateQueueRequest{}
 	reqGetQueueURL = &pb.GetQueueUrlRequest{}
 )
 
 type deleteQueueRequest struct {
 	QueueURL string `json:"QueueUrl"`
+}
+
+type listQueuesRequest struct {
+	MaxResults      *uint64 `json:"MaxResults"`
+	NextToken       string  `json:"NextToken"`
+	QueueNamePrefix string  `json:"QueueNamePrefix"`
 }
 
 type setQueueAttributesRequest struct {
@@ -35,9 +40,13 @@ type getQueueAttributesRequest struct {
 }
 
 type sendMessageRequest struct {
-	QueueURL     string  `json:"QueueUrl"`
-	MessageBody  string  `json:"MessageBody"`
-	DelaySeconds *uint64 `json:"DelaySeconds"`
+	QueueURL                string                     `json:"QueueUrl"`
+	MessageBody             string                     `json:"MessageBody"`
+	DelaySeconds            *uint64                    `json:"DelaySeconds"`
+	MessageAttributes       map[string]json.RawMessage `json:"MessageAttributes"`
+	MessageSystemAttributes map[string]json.RawMessage `json:"MessageSystemAttributes"`
+	MessageDeduplicationID  string                     `json:"MessageDeduplicationId"`
+	MessageGroupID          string                     `json:"MessageGroupId"`
 }
 
 type sendMessageBatchRequest struct {
@@ -54,14 +63,27 @@ type sendMessageBatchRequest struct {
 }
 
 type receiveMessageRequest struct {
-	QueueURL            string  `json:"QueueUrl"`
-	MaxNumberOfMessages uint64  `json:"MaxNumberOfMessages"`
-	VisibilityTimeout   *uint64 `json:"VisibilityTimeout"`
+	QueueURL                    string   `json:"QueueUrl"`
+	MaxNumberOfMessages         uint64   `json:"MaxNumberOfMessages"`
+	VisibilityTimeout           *uint64  `json:"VisibilityTimeout"`
+	WaitTimeSeconds             *uint64  `json:"WaitTimeSeconds"`
+	MessageAttributeNames       []string `json:"MessageAttributeNames"`
+	MessageSystemAttributeNames []string `json:"MessageSystemAttributeNames"`
+	AttributeNames              []string `json:"AttributeNames"`
 }
 
 type deleteMessageRequest struct {
 	QueueURL      string `json:"QueueUrl"`
 	ReceiptHandle string `json:"ReceiptHandle"`
+}
+
+type receiptBatchRequest struct {
+	QueueURL string `json:"QueueUrl"`
+	Entries  []struct {
+		ID                string  `json:"Id"`
+		ReceiptHandle     string  `json:"ReceiptHandle"`
+		VisibilityTimeout *uint64 `json:"VisibilityTimeout"`
+	} `json:"Entries"`
 }
 
 type changeMessageVisibilityRequest struct {
@@ -115,12 +137,17 @@ func httpHandler(method, path []byte) {
 		}
 		switch action {
 		case "ListQueues":
-			reqListQueues = &pb.ListQueuesRequest{}
-			if err := reqListQueues.UnmarshalJSON(body); err != nil {
+			var req listQueuesRequest
+			if err := json.Unmarshal(body, &req); err != nil {
 				http_server.Send(400, []byte(err.Error()))
 				return
 			}
-			b, err := reqListQueues.MarshalVT()
+			listReq := &pb.ListQueuesRequest{NextToken: req.NextToken, QueueNamePrefix: req.QueueNamePrefix}
+			if req.MaxResults != nil {
+				listReq.MaxResults = *req.MaxResults
+				listReq.MaxResultsSet = true
+			}
+			b, err := listReq.MarshalVT()
 			if err != nil {
 				http_server.Send(500, []byte(err.Error()))
 				return
@@ -251,6 +278,10 @@ func httpHandler(method, path []byte) {
 				http_server.Send(400, []byte(err.Error()))
 				return
 			}
+			if len(req.MessageAttributes) > 0 || len(req.MessageSystemAttributes) > 0 || req.MessageDeduplicationID != "" || req.MessageGroupID != "" {
+				sendUnsupported("Message attributes and FIFO fields are not supported")
+				return
+			}
 			name, ok := queueNameFromURL(req.QueueURL)
 			if !ok {
 				http_server.Send(400, []byte(`invalid QueueUrl`))
@@ -312,6 +343,10 @@ func httpHandler(method, path []byte) {
 				http_server.Send(400, []byte(err.Error()))
 				return
 			}
+			if len(req.MessageAttributeNames) > 0 || len(req.MessageSystemAttributeNames) > 0 || len(req.AttributeNames) > 0 {
+				sendUnsupported("Message attributes are not supported")
+				return
+			}
 			name, ok := queueNameFromURL(req.QueueURL)
 			if !ok {
 				http_server.Send(400, []byte(`invalid QueueUrl`))
@@ -321,12 +356,17 @@ func httpHandler(method, path []byte) {
 			if req.VisibilityTimeout != nil {
 				visibilityTimeout = *req.VisibilityTimeout
 			}
-			b, err := (&pb.ReceiveMessageRequest{
+			receiveReq := &pb.ReceiveMessageRequest{
 				QueueName:            name,
 				MaxNumberOfMessages:  req.MaxNumberOfMessages,
 				VisibilityTimeout:    visibilityTimeout,
 				VisibilityTimeoutSet: req.VisibilityTimeout != nil,
-			}).MarshalVT()
+				WaitTimeSecondsSet:   req.WaitTimeSeconds != nil,
+			}
+			if req.WaitTimeSeconds != nil {
+				receiveReq.WaitTimeSeconds = *req.WaitTimeSeconds
+			}
+			b, err := receiveReq.MarshalVT()
 			if err != nil {
 				http_server.Send(500, []byte(err.Error()))
 				return
@@ -355,6 +395,40 @@ func httpHandler(method, path []byte) {
 				return
 			}
 			if err := queueShard().ApplyAsync(asyncName(action, requestHost), append(b, cmd.MESSAGE_DELETE)); err != nil {
+				http_server.Send(500, []byte(err.Error()))
+				return
+			}
+		case "DeleteMessageBatch", "ChangeMessageVisibilityBatch":
+			var req receiptBatchRequest
+			if err := json.Unmarshal(body, &req); err != nil {
+				http_server.Send(400, []byte(err.Error()))
+				return
+			}
+			name, ok := queueNameFromURL(req.QueueURL)
+			if !ok {
+				http_server.Send(400, []byte(`invalid QueueUrl`))
+				return
+			}
+			batch := &pb.MessageReceiptBatchRequest{QueueName: name}
+			for _, entry := range req.Entries {
+				item := &pb.MessageReceiptBatchRequestEntry{
+					Id: entry.ID, ReceiptHandle: entry.ReceiptHandle, VisibilityTimeoutSet: entry.VisibilityTimeout != nil,
+				}
+				if entry.VisibilityTimeout != nil {
+					item.VisibilityTimeout = *entry.VisibilityTimeout
+				}
+				batch.Entries = append(batch.Entries, item)
+			}
+			b, err := batch.MarshalVT()
+			if err != nil {
+				http_server.Send(500, []byte(err.Error()))
+				return
+			}
+			command := cmd.MESSAGE_DELETE_BATCH
+			if action == "ChangeMessageVisibilityBatch" {
+				command = cmd.MESSAGE_REFRESH_BATCH
+			}
+			if err := queueShard().ApplyAsync(asyncName(action, requestHost), append(b, command)); err != nil {
 				http_server.Send(500, []byte(err.Error()))
 				return
 			}
@@ -428,7 +502,8 @@ func asyncRecv(name, data []byte, val uint64, err error) {
 		}
 		body, err := json.Marshal(struct {
 			QueueURLs []string `json:"QueueUrls"`
-		}{QueueURLs: urls})
+			NextToken string   `json:"NextToken,omitempty"`
+		}{QueueURLs: urls, NextToken: resp.NextToken})
 		if err != nil {
 			http_server.Send(500, []byte(err.Error()))
 			return
@@ -526,23 +601,7 @@ func asyncRecv(name, data []byte, val uint64, err error) {
 		}
 		sendJSON(200, body)
 	case "SendMessageBatch":
-		if val != 200 {
-			if val == 400 {
-				switch string(data) {
-				case "EmptyBatchRequest", "TooManyEntriesInBatchRequest", "InvalidBatchEntryId", "BatchEntryIdsNotDistinct", "BatchRequestTooLong", "QueueDoesNotExist":
-					body, err := json.Marshal(struct {
-						Type    string `json:"__type"`
-						Message string `json:"message"`
-					}{Type: "com.amazonaws.sqs#" + string(data), Message: string(data)})
-					if err != nil {
-						http_server.Send(500, []byte(err.Error()))
-						return
-					}
-					sendJSON(400, body)
-					return
-				}
-			}
-			http_server.Send(int(val), data)
+		if sendBatchError(val, data) {
 			return
 		}
 		resp := &pb.SendMessageBatchResponse{}
@@ -578,8 +637,47 @@ func asyncRecv(name, data []byte, val uint64, err error) {
 			return
 		}
 		sendJSON(200, body)
+	case "DeleteMessageBatch", "ChangeMessageVisibilityBatch":
+		if sendBatchError(val, data) {
+			return
+		}
+		resp := &pb.MessageReceiptBatchResponse{}
+		if err := resp.UnmarshalVT(data); err != nil {
+			http_server.Send(500, []byte(err.Error()))
+			return
+		}
+		type successfulEntry struct {
+			ID string `json:"Id"`
+		}
+		type failedEntry struct {
+			ID          string `json:"Id"`
+			Code        string `json:"Code"`
+			Message     string `json:"Message"`
+			SenderFault bool   `json:"SenderFault"`
+		}
+		successful := make([]successfulEntry, 0, len(resp.Successful))
+		for _, entry := range resp.Successful {
+			successful = append(successful, successfulEntry{ID: entry.Id})
+		}
+		failed := make([]failedEntry, 0, len(resp.Failed))
+		for _, entry := range resp.Failed {
+			failed = append(failed, failedEntry{ID: entry.Id, Code: entry.Code, Message: entry.Message, SenderFault: entry.SenderFault})
+		}
+		body, err := json.Marshal(struct {
+			Successful []successfulEntry `json:"Successful"`
+			Failed     []failedEntry     `json:"Failed"`
+		}{Successful: successful, Failed: failed})
+		if err != nil {
+			http_server.Send(500, []byte(err.Error()))
+			return
+		}
+		sendJSON(200, body)
 	case "ReceiveMessage":
 		if val != 200 {
+			if string(data) == "Long polling is not supported" {
+				sendUnsupported(string(data))
+				return
+			}
 			http_server.Send(int(val), data)
 			return
 		}
@@ -613,6 +711,41 @@ func asyncRecv(name, data []byte, val uint64, err error) {
 	default:
 		panic("unknown asyncRecv name: " + string(name))
 	}
+}
+
+func sendUnsupported(message string) {
+	body, err := json.Marshal(struct {
+		Type    string `json:"__type"`
+		Message string `json:"message"`
+	}{Type: "com.amazonaws.sqs#UnsupportedOperation", Message: message})
+	if err != nil {
+		http_server.Send(500, []byte(err.Error()))
+		return
+	}
+	sendJSON(400, body)
+}
+
+func sendBatchError(val uint64, data []byte) bool {
+	if val == 200 {
+		return false
+	}
+	if val == 400 {
+		switch string(data) {
+		case "EmptyBatchRequest", "TooManyEntriesInBatchRequest", "InvalidBatchEntryId", "BatchEntryIdsNotDistinct", "BatchRequestTooLong", "QueueDoesNotExist":
+			body, err := json.Marshal(struct {
+				Type    string `json:"__type"`
+				Message string `json:"message"`
+			}{Type: "com.amazonaws.sqs#" + string(data), Message: string(data)})
+			if err != nil {
+				http_server.Send(500, []byte(err.Error()))
+				return true
+			}
+			sendJSON(400, body)
+			return true
+		}
+	}
+	http_server.Send(int(val), data)
+	return true
 }
 
 func asyncName(action, host string) []byte {

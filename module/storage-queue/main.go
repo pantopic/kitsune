@@ -1,6 +1,10 @@
 package main
 
 import (
+	"bytes"
+	"encoding/base64"
+	"strconv"
+
 	"github.com/pantopic/ext-mdb/sdk-go"
 	"github.com/pantopic/ext-raft/sdk-go"
 
@@ -130,6 +134,23 @@ func update(index uint64, c []byte) (value uint64, data []byte) {
 			return 400, []byte(err.Error())
 		}
 		value = 200
+	case cmd.MESSAGE_DELETE_BATCH, cmd.MESSAGE_REFRESH_BATCH:
+		req := &pb.MessageReceiptBatchRequest{}
+		if err = req.UnmarshalVT(c[:len(c)-1]); err != nil {
+			return 400, []byte(`Invalid batch request`)
+		}
+		resp, errorCode, batchErr := dbMessage.receiptBatch(txn, req, epoch, c[len(c)-1] == cmd.MESSAGE_REFRESH_BATCH)
+		if batchErr != nil {
+			return 500, []byte(batchErr.Error())
+		}
+		if errorCode != "" {
+			return 400, []byte(errorCode)
+		}
+		data, err = resp.MarshalVT()
+		if err != nil {
+			return 500, []byte(err.Error())
+		}
+		value = 200
 	case cmd.MESSAGE_REFRESH:
 		req := &pb.ChangeMessageVisibilityRequest{}
 		if err = req.UnmarshalVT(c[:len(c)-1]); err != nil {
@@ -243,20 +264,44 @@ func read(q []byte) (val uint64, data []byte) {
 		if err := req.UnmarshalVT(q[:len(q)-1]); err != nil {
 			return 400, []byte(`Invalid ListQueues request`)
 		}
-		maxResults := req.MaxResults
-		if maxResults == 0 || maxResults > globals.MAX_QUEUE_LIST_RESULTS() {
-			maxResults = globals.MAX_QUEUE_LIST_RESULTS()
+		if req.MaxResultsSet && (req.MaxResults == 0 || req.MaxResults > globals.MAX_QUEUE_LIST_RESULTS()) {
+			return 400, []byte(`Invalid MaxResults`)
+		}
+		var after []byte
+		if req.NextToken != "" {
+			token, err := base64.RawURLEncoding.DecodeString(req.NextToken)
+			if err != nil {
+				return 400, []byte(`Invalid NextToken`)
+			}
+			parts := bytes.Split(token, []byte{0})
+			if len(parts) != 2 || string(parts[0]) != req.QueueNamePrefix || len(parts[1]) == 0 || !bytes.HasPrefix(parts[1], parts[0]) || !queueNamePattern.Match(parts[1]) || len(parts[1]) > int(globals.MAX_QUEUE_NAME_LEN()) {
+				return 400, []byte(`Invalid NextToken`)
+			}
+			after = parts[1]
+		}
+		maxResults := globals.MAX_QUEUE_LIST_RESULTS()
+		if req.MaxResultsSet {
+			maxResults = req.MaxResults
+		}
+		limit := maxResults
+		if req.MaxResultsSet {
+			limit++
 		}
 		var names [][]byte
 		err := mdb.View(func(txn mdb.Txn) error {
 			var err error
-			names, err = dbQueue.list(txn, []byte(req.QueueNamePrefix), maxResults)
+			names, err = dbQueue.list(txn, []byte(req.QueueNamePrefix), after, limit)
 			return err
 		})
 		if err != nil {
 			return 500, []byte(err.Error())
 		}
 		resp := &pb.QueueListResponse{}
+		if uint64(len(names)) > maxResults {
+			names = names[:int(maxResults)]
+			token := append(append([]byte(req.QueueNamePrefix), 0), names[len(names)-1]...)
+			resp.NextToken = base64.RawURLEncoding.EncodeToString(token)
+		}
 		for _, name := range names {
 			resp.QueueNames = append(resp.QueueNames, string(name))
 		}
@@ -295,7 +340,31 @@ func read(q []byte) (val uint64, data []byte) {
 		err := mdb.View(func(txn mdb.Txn) error {
 			var err error
 			attributes, err = dbQueue.getAttributes(txn, []byte(req.QueueName))
-			return err
+			if err != nil {
+				return err
+			}
+			if !containsAttribute(req.AttributeNames, "All") &&
+				!containsAttribute(req.AttributeNames, "ApproximateNumberOfMessages") &&
+				!containsAttribute(req.AttributeNames, "ApproximateNumberOfMessagesDelayed") &&
+				!containsAttribute(req.AttributeNames, "ApproximateNumberOfMessagesNotVisible") {
+				return nil
+			}
+			queueID, err := dbQueue.getID(txn, []byte(req.QueueName))
+			if err != nil {
+				return err
+			}
+			currentEpoch, err := dbMeta.getEpoch(txn)
+			if err != nil {
+				return err
+			}
+			visible, delayed, active, err := dbMessage.counts(txn, queueID, currentEpoch)
+			if err != nil {
+				return err
+			}
+			attributes["ApproximateNumberOfMessages"] = strconv.FormatUint(visible, 10)
+			attributes["ApproximateNumberOfMessagesDelayed"] = strconv.FormatUint(delayed, 10)
+			attributes["ApproximateNumberOfMessagesNotVisible"] = strconv.FormatUint(active, 10)
+			return nil
 		})
 		if mdb.IsNotFound(err) {
 			return 400, []byte(ErrQueueDoesNotExist.Error())

@@ -15,12 +15,13 @@ import (
 )
 
 var (
-	ErrMessageBodyInvalid   = errors.New(`Message body invalid`)
-	ErrMessageBodyTooLarge  = errors.New(`Message body too large`)
-	ErrMessageDelayInvalid  = errors.New(`Message delay invalid`)
-	ErrReceiptHandleInvalid = errors.New(`Receipt handle is invalid`)
-	ErrMessageBatchLimit    = errors.New(`Too many messages requested`)
-	ErrReceiptLimit         = errors.New(`Message receipt generation exhausted`)
+	ErrMessageBodyInvalid     = errors.New(`Message body invalid`)
+	ErrMessageBodyTooLarge    = errors.New(`Message body too large`)
+	ErrMessageDelayInvalid    = errors.New(`Message delay invalid`)
+	ErrReceiptHandleInvalid   = errors.New(`Receipt handle is invalid`)
+	ErrMessageBatchLimit      = errors.New(`Too many messages requested`)
+	ErrReceiptLimit           = errors.New(`Message receipt generation exhausted`)
+	ErrLongPollingUnsupported = errors.New(`Long polling is not supported`)
 )
 
 type dbMessageImpl struct {
@@ -37,6 +38,51 @@ func (db dbMessageImpl) init(txn mdb.Txn) {
 	db.expire.open(txn)
 	db.attr.open(txn)
 	db.data.open(txn)
+}
+
+func (db dbMessageImpl) counts(txn mdb.Txn, queueID, epoch uint64) (visible, delayed, active uint64, err error) {
+	queueKey := binary.BigEndian.AppendUint64(nil, queueID)
+	cur, err := txn.OpenCursor(db.pending.i)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	key, value, err := cur.Get(queueKey, nil, mdb.SetRange)
+	for err == nil && len(key) >= 8 && binary.BigEndian.Uint64(key[:8]) == queueID {
+		if len(key) != 24 || len(value) != 8 {
+			cur.Close()
+			return 0, 0, 0, ErrKeyInvalid
+		}
+		if binary.BigEndian.Uint64(key[8:16]) > epoch {
+			delayed++
+		} else {
+			visible++
+		}
+		key, value, err = cur.Get(key, value, mdb.Next)
+	}
+	cur.Close()
+	if err != nil && !mdb.IsNotFound(err) {
+		return 0, 0, 0, err
+	}
+	cur, err = txn.OpenCursor(db.active.i)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	key, value, err = cur.Get(binary.BigEndian.AppendUint64(nil, epoch), nil, mdb.SetRange)
+	for err == nil {
+		if len(key) != 24 || len(value) != 8 {
+			cur.Close()
+			return 0, 0, 0, ErrKeyInvalid
+		}
+		if binary.BigEndian.Uint64(key[:8]) > epoch && binary.BigEndian.Uint64(key[8:16]) == queueID {
+			active++
+		}
+		key, value, err = cur.Get(key, value, mdb.Next)
+	}
+	cur.Close()
+	if err != nil && !mdb.IsNotFound(err) {
+		return 0, 0, 0, err
+	}
+	return visible, delayed, active, nil
 }
 
 func (db dbMessageImpl) send(txn mdb.Txn, req *pb.SendMessageRequest, epoch uint64) (*pb.SendMessageResponse, error) {
@@ -141,26 +187,21 @@ func validMessageBody(body string) bool {
 }
 
 func (db dbMessageImpl) sendBatch(txn mdb.Txn, req *pb.SendMessageBatchRequest, epoch uint64) (*pb.SendMessageBatchResponse, string, error) {
-	if len(req.Entries) == 0 {
-		return nil, "EmptyBatchRequest", nil
-	}
-	if uint64(len(req.Entries)) > globals.MAX_MESSAGE_BATCH_SIZE() {
-		return nil, "TooManyEntriesInBatchRequest", nil
-	}
-	ids := make(map[string]bool, len(req.Entries))
+	ids := make([]string, 0, len(req.Entries))
 	var size uint64
 	for _, entry := range req.Entries {
-		if entry == nil || !validBatchID(entry.Id) {
-			return nil, "InvalidBatchEntryId", nil
+		if entry == nil {
+			ids = append(ids, "")
+			continue
 		}
-		if ids[entry.Id] {
-			return nil, "BatchEntryIdsNotDistinct", nil
-		}
-		ids[entry.Id] = true
+		ids = append(ids, entry.Id)
 		size += uint64(len(entry.MessageBody))
-		if size > globals.MAX_MESSAGE_SIZE() {
-			return nil, "BatchRequestTooLong", nil
-		}
+	}
+	if code := validateBatchIDs(ids); code != "" {
+		return nil, code, nil
+	}
+	if size > globals.MAX_MESSAGE_SIZE() {
+		return nil, "BatchRequestTooLong", nil
 	}
 	if _, err := dbQueue.getID(txn, []byte(req.QueueName)); err != nil {
 		if mdb.IsNotFound(err) {
@@ -213,6 +254,80 @@ func (db dbMessageImpl) sendBatch(txn mdb.Txn, req *pb.SendMessageBatchRequest, 
 	return resp, "", nil
 }
 
+func validateBatchIDs(ids []string) string {
+	if len(ids) == 0 {
+		return "EmptyBatchRequest"
+	}
+	if uint64(len(ids)) > globals.MAX_MESSAGE_BATCH_SIZE() {
+		return "TooManyEntriesInBatchRequest"
+	}
+	seen := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		if !validBatchID(id) {
+			return "InvalidBatchEntryId"
+		}
+		if seen[id] {
+			return "BatchEntryIdsNotDistinct"
+		}
+		seen[id] = true
+	}
+	return ""
+}
+
+func (db dbMessageImpl) receiptBatch(txn mdb.Txn, req *pb.MessageReceiptBatchRequest, epoch uint64, refresh bool) (*pb.MessageReceiptBatchResponse, string, error) {
+	ids := make([]string, 0, len(req.Entries))
+	for _, entry := range req.Entries {
+		if entry == nil {
+			ids = append(ids, "")
+		} else {
+			ids = append(ids, entry.Id)
+		}
+	}
+	if code := validateBatchIDs(ids); code != "" {
+		return nil, code, nil
+	}
+	if _, err := dbQueue.getID(txn, []byte(req.QueueName)); err != nil {
+		if mdb.IsNotFound(err) {
+			return nil, "QueueDoesNotExist", nil
+		}
+		return nil, "", err
+	}
+	resp := &pb.MessageReceiptBatchResponse{}
+	err := txn.Sub(func(batchTxn mdb.Txn) error {
+		for _, entry := range req.Entries {
+			var entryErr error
+			if refresh {
+				if !entry.VisibilityTimeoutSet {
+					entryErr = ErrQueueAttributeValueInvalid
+				} else {
+					entryErr = db.refresh(batchTxn, &pb.ChangeMessageVisibilityRequest{
+						QueueName: req.QueueName, ReceiptHandle: entry.ReceiptHandle, VisibilityTimeout: entry.VisibilityTimeout,
+					}, epoch)
+				}
+			} else {
+				entryErr = db.delete(batchTxn, &pb.DeleteMessageRequest{QueueName: req.QueueName, ReceiptHandle: entry.ReceiptHandle})
+			}
+			switch entryErr {
+			case nil:
+				resp.Successful = append(resp.Successful, &pb.MessageReceiptBatchResultEntry{Id: entry.Id})
+			case ErrReceiptHandleInvalid, ErrQueueAttributeValueInvalid:
+				code := "ReceiptHandleIsInvalid"
+				if entryErr == ErrQueueAttributeValueInvalid {
+					code = "InvalidParameterValue"
+				}
+				resp.Failed = append(resp.Failed, &pb.BatchResultErrorEntry{Id: entry.Id, Code: code, Message: entryErr.Error(), SenderFault: true})
+			default:
+				return entryErr
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, "", err
+	}
+	return resp, "", nil
+}
+
 func validBatchID(id string) bool {
 	if len(id) == 0 || len(id) > 80 {
 		return false
@@ -236,6 +351,19 @@ func (db dbMessageImpl) receive(txn mdb.Txn, req *pb.ReceiveMessageRequest, epoc
 	queueAttributes, err := dbQueue.getAttributes(txn, []byte(req.QueueName))
 	if err != nil {
 		return nil, err
+	}
+	wait := req.WaitTimeSeconds
+	if !req.WaitTimeSecondsSet {
+		wait, err = strconv.ParseUint(queueAttributes["ReceiveMessageWaitTimeSeconds"], 10, 64)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if wait > globals.MAX_POLL_WAIT_TIME() {
+		return nil, ErrQueueAttributeValueInvalid
+	}
+	if wait > 0 {
+		return nil, ErrLongPollingUnsupported
 	}
 	visibility := req.VisibilityTimeout
 	if visibility == 0 && !req.VisibilityTimeoutSet {

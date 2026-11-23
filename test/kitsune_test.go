@@ -66,6 +66,55 @@ func TestAll(t *testing.T) {
 		assert.Contains(t, string(body), `"QueueUrls":["http://`+addr)
 		assert.Contains(t, string(body), `/kitsune-test-queue"]`)
 	})
+	t.Run(`CreateQueuesForPagination`, func(t *testing.T) {
+		for _, name := range []string{"pagination-a", "pagination-b", "pagination-c"} {
+			res, body := requestSQS(t, c, addr, "CreateQueue", `{"QueueName":"`+name+`"}`)
+			require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		}
+	})
+	t.Run(`ListQueuesPagination`, func(t *testing.T) {
+		token := ""
+		for i, name := range []string{"pagination-a", "pagination-b", "pagination-c"} {
+			request, err := json.Marshal(map[string]any{"QueueNamePrefix": "pagination-", "MaxResults": 1, "NextToken": token})
+			require.NoError(t, err)
+			res, body := requestSQS(t, c, addr, "ListQueues", string(request))
+			require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+			var page struct {
+				QueueURLs []string `json:"QueueUrls"`
+				NextToken string   `json:"NextToken"`
+			}
+			require.NoError(t, json.Unmarshal(body, &page))
+			require.Equal(t, []string{"http://" + addr + "/000000000000/" + name}, page.QueueURLs)
+			token = page.NextToken
+			if i < 2 {
+				require.NotEmpty(t, token)
+			} else {
+				require.Empty(t, token)
+			}
+		}
+		for _, request := range []string{
+			`{"MaxResults":0}`,
+			`{"MaxResults":1001}`,
+			`{"MaxResults":1,"NextToken":"not a token"}`,
+		} {
+			res, body := requestSQS(t, c, addr, "ListQueues", request)
+			require.Equal(t, http.StatusBadRequest, res.StatusCode, string(body))
+		}
+		res, body := requestSQS(t, c, addr, "ListQueues", `{"MaxResults":1,"QueueNamePrefix":"pagination-"}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		var page struct {
+			NextToken string `json:"NextToken"`
+		}
+		require.NoError(t, json.Unmarshal(body, &page))
+		res, body = requestSQS(t, c, addr, "ListQueues", `{"MaxResults":1,"QueueNamePrefix":"other","NextToken":"`+page.NextToken+`"}`)
+		require.Equal(t, http.StatusBadRequest, res.StatusCode, string(body))
+	})
+	t.Run(`DeleteQueuesForPagination`, func(t *testing.T) {
+		for _, name := range []string{"pagination-a", "pagination-b", "pagination-c"} {
+			res, body := requestSQS(t, c, addr, "DeleteQueue", `{"QueueUrl":"http://`+addr+`/000000000000/`+name+`"}`)
+			require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		}
+	})
 	t.Run(`GetQueueUrl`, func(t *testing.T) {
 		res, body := requestSQS(t, c, addr, "GetQueueUrl", `{"QueueName":"kitsune-test-queue"}`)
 		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
@@ -104,6 +153,38 @@ func TestAll(t *testing.T) {
 	})
 	t.Run(`ResetQueueDelay`, func(t *testing.T) {
 		res, body := requestSQS(t, c, addr, "SetQueueAttributes", `{"QueueUrl":"`+queueURL+`","Attributes":{"DelaySeconds":"0"}}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+	})
+	t.Run(`SendMessageUnsupportedAttributes`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "SendMessage", `{"QueueUrl":"`+queueURL+`","MessageBody":"must not be lost","MessageAttributes":{"a":{"DataType":"String","StringValue":"x"}}}`)
+		require.Equal(t, http.StatusBadRequest, res.StatusCode, string(body))
+		assert.Contains(t, string(body), "UnsupportedOperation")
+	})
+	t.Run(`ReceiveMessageUnsupportedOptions`, func(t *testing.T) {
+		for _, option := range []string{
+			`"MessageAttributeNames":["All"]`,
+			`"MessageSystemAttributeNames":["All"]`,
+			`"WaitTimeSeconds":1`,
+		} {
+			res, body := requestSQS(t, c, addr, "ReceiveMessage", `{"QueueUrl":"`+queueURL+`",`+option+`}`)
+			require.Equal(t, http.StatusBadRequest, res.StatusCode, string(body))
+			assert.Contains(t, string(body), "UnsupportedOperation")
+		}
+	})
+	t.Run(`SetQueueLongPollingDefault`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "SetQueueAttributes", `{"QueueUrl":"`+queueURL+`","Attributes":{"ReceiveMessageWaitTimeSeconds":"1"}}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+	})
+	t.Run(`ReceiveMessageWithQueueLongPollingDefault`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "ReceiveMessage", `{"QueueUrl":"`+queueURL+`"}`)
+		require.Equal(t, http.StatusBadRequest, res.StatusCode, string(body))
+		assert.Contains(t, string(body), "UnsupportedOperation")
+		res, body = requestSQS(t, c, addr, "ReceiveMessage", `{"QueueUrl":"`+queueURL+`","WaitTimeSeconds":0}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		assert.Equal(t, `{"Messages":[]}`, string(body))
+	})
+	t.Run(`ResetQueueLongPollingDefault`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "SetQueueAttributes", `{"QueueUrl":"`+queueURL+`","Attributes":{"ReceiveMessageWaitTimeSeconds":"0"}}`)
 		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
 	})
 	t.Run(`SendMessage`, func(t *testing.T) {
@@ -245,6 +326,16 @@ func TestAll(t *testing.T) {
 			seen[handle[:64]] = handle
 		}
 		require.True(t, sameDeadline, "did not receive the message twice in the same epoch")
+	})
+	t.Run(`GetQueueAttributesAfterZeroVisibility`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "GetQueueAttributes", `{"QueueUrl":"`+queueURL+`","AttributeNames":["ApproximateNumberOfMessages","ApproximateNumberOfMessagesNotVisible"]}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		var response struct {
+			Attributes map[string]string `json:"Attributes"`
+		}
+		require.NoError(t, json.Unmarshal(body, &response))
+		assert.Equal(t, "1", response.Attributes["ApproximateNumberOfMessages"])
+		assert.Equal(t, "0", response.Attributes["ApproximateNumberOfMessagesNotVisible"])
 	})
 	t.Run(`DeleteMessageWithEarlierZeroVisibilityReceipt`, func(t *testing.T) {
 		res, body := requestSQS(t, c, addr, "DeleteMessage", `{"QueueUrl":"`+queueURL+`","ReceiptHandle":"`+earlierReceiptHandle+`"}`)
@@ -526,12 +617,104 @@ func TestAll(t *testing.T) {
 		}
 		require.Len(t, seen, 2)
 	})
-	t.Run(`DeleteMessageBatchResults`, func(t *testing.T) {
-		for _, receipt := range batchReceipts {
-			res, body := requestSQS(t, c, addr, "DeleteMessage", `{"QueueUrl":"`+queueURL+`","ReceiptHandle":"`+receipt+`"}`)
-			require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+	t.Run(`ChangeMessageVisibilityBatch`, func(t *testing.T) {
+		request := `{"QueueUrl":"` + queueURL + `","Entries":[` +
+			`{"Id":"visible","ReceiptHandle":"` + batchReceipts[0] + `","VisibilityTimeout":0},` +
+			`{"Id":"bad-receipt","ReceiptHandle":"invalid","VisibilityTimeout":1},` +
+			`{"Id":"bad-timeout","ReceiptHandle":"` + batchReceipts[1] + `","VisibilityTimeout":43201},` +
+			`{"Id":"missing-timeout","ReceiptHandle":"` + batchReceipts[1] + `"}]}`
+		res, body := requestSQS(t, c, addr, "ChangeMessageVisibilityBatch", request)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		var response struct {
+			Successful []struct {
+				ID string `json:"Id"`
+			} `json:"Successful"`
+			Failed []struct {
+				ID          string `json:"Id"`
+				Code        string `json:"Code"`
+				SenderFault bool   `json:"SenderFault"`
+			} `json:"Failed"`
+		}
+		require.NoError(t, json.Unmarshal(body, &response))
+		require.Len(t, response.Successful, 1)
+		assert.Equal(t, "visible", response.Successful[0].ID)
+		require.Len(t, response.Failed, 3)
+		expected := map[string]string{"bad-receipt": "ReceiptHandleIsInvalid", "bad-timeout": "InvalidParameterValue", "missing-timeout": "InvalidParameterValue"}
+		for _, entry := range response.Failed {
+			assert.Equal(t, expected[entry.ID], entry.Code)
+			assert.True(t, entry.SenderFault)
+			delete(expected, entry.ID)
+		}
+		assert.Empty(t, expected)
+	})
+	t.Run(`ReceiveAfterChangeMessageVisibilityBatch`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "ReceiveMessage", `{"QueueUrl":"`+queueURL+`","MaxNumberOfMessages":10}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		var response struct {
+			Messages []struct {
+				ReceiptHandle string `json:"ReceiptHandle"`
+			} `json:"Messages"`
+		}
+		require.NoError(t, json.Unmarshal(body, &response))
+		require.Len(t, response.Messages, 1)
+		receiptHandle = response.Messages[0].ReceiptHandle
+		require.NotEqual(t, batchReceipts[0], receiptHandle)
+	})
+	t.Run(`DeleteMessageBatch`, func(t *testing.T) {
+		request := `{"QueueUrl":"` + queueURL + `","Entries":[` +
+			`{"Id":"first","ReceiptHandle":"` + receiptHandle + `"},` +
+			`{"Id":"second","ReceiptHandle":"` + batchReceipts[1] + `"},` +
+			`{"Id":"stale","ReceiptHandle":"` + batchReceipts[0] + `"},` +
+			`{"Id":"invalid","ReceiptHandle":"invalid"}]}`
+		res, body := requestSQS(t, c, addr, "DeleteMessageBatch", request)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		var response struct {
+			Successful []struct {
+				ID string `json:"Id"`
+			} `json:"Successful"`
+			Failed []struct {
+				ID          string `json:"Id"`
+				Code        string `json:"Code"`
+				SenderFault bool   `json:"SenderFault"`
+			} `json:"Failed"`
+		}
+		require.NoError(t, json.Unmarshal(body, &response))
+		require.Len(t, response.Successful, 2)
+		assert.Equal(t, "first", response.Successful[0].ID)
+		assert.Equal(t, "second", response.Successful[1].ID)
+		require.Len(t, response.Failed, 2)
+		for _, entry := range response.Failed {
+			assert.Contains(t, []string{"stale", "invalid"}, entry.ID)
+			assert.Equal(t, "ReceiptHandleIsInvalid", entry.Code)
+			assert.True(t, entry.SenderFault)
 		}
 	})
+	t.Run(`ReceiveAfterDeleteMessageBatch`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "ReceiveMessage", `{"QueueUrl":"`+queueURL+`"}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		assert.Equal(t, `{"Messages":[]}`, string(body))
+	})
+	for _, action := range []string{"DeleteMessageBatch", "ChangeMessageVisibilityBatch"} {
+		t.Run(action+`InvalidRequests`, func(t *testing.T) {
+			tests := []struct {
+				entries string
+				code    string
+			}{
+				{`[]`, "EmptyBatchRequest"},
+				{`[{"Id":"same"},{"Id":"same"}]`, "BatchEntryIdsNotDistinct"},
+				{`[{"Id":"bad id"}]`, "InvalidBatchEntryId"},
+				{`[` + strings.Repeat(`{"Id":"a"},`, 10) + `{"Id":"b"}]`, "TooManyEntriesInBatchRequest"},
+			}
+			for _, test := range tests {
+				res, body := requestSQS(t, c, addr, action, `{"QueueUrl":"`+queueURL+`","Entries":`+test.entries+`}`)
+				require.Equal(t, http.StatusBadRequest, res.StatusCode, string(body))
+				assert.Contains(t, string(body), `"__type":"com.amazonaws.sqs#`+test.code+`"`)
+			}
+			res, body := requestSQS(t, c, addr, action, `{"QueueUrl":"http://`+addr+`/000000000000/missing-queue","Entries":[{"Id":"one"}]}`)
+			require.Equal(t, http.StatusBadRequest, res.StatusCode, string(body))
+			assert.Contains(t, string(body), `"__type":"com.amazonaws.sqs#QueueDoesNotExist"`)
+		})
+	}
 	t.Run(`SendMessageWithZeroDelay`, func(t *testing.T) {
 		res, body := requestSQS(t, c, addr, "SendMessage", `{"QueueUrl":"`+queueURL+`","MessageBody":"no delay","DelaySeconds":0}`)
 		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
@@ -578,6 +761,76 @@ func TestAll(t *testing.T) {
 		res, body := requestSQS(t, c, addr, "ReceiveMessage", `{"QueueUrl":"`+queueURL+`"}`)
 		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
 		assert.Equal(t, `{"Messages":[]}`, string(body))
+	})
+	t.Run(`SetQueueRetentionForExpiry`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "SetQueueAttributes", `{"QueueUrl":"`+queueURL+`","Attributes":{"MessageRetentionPeriod":"60"}}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+	})
+	t.Run(`SendMessageForDelayedCount`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "SendMessage", `{"QueueUrl":"`+queueURL+`","MessageBody":"delayed","DelaySeconds":900}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+	})
+	t.Run(`GetQueueAttributesWithDelayedMessages`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "GetQueueAttributes", `{"QueueUrl":"`+queueURL+`","AttributeNames":["ApproximateNumberOfMessages","ApproximateNumberOfMessagesDelayed","ApproximateNumberOfMessagesNotVisible"]}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		var response struct {
+			Attributes map[string]string `json:"Attributes"`
+		}
+		require.NoError(t, json.Unmarshal(body, &response))
+		assert.Equal(t, map[string]string{"ApproximateNumberOfMessages": "0", "ApproximateNumberOfMessagesDelayed": "1", "ApproximateNumberOfMessagesNotVisible": "0"}, response.Attributes)
+	})
+	t.Run(`PurgeMessageForDelayedCount`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "PurgeQueue", `{"QueueUrl":"`+queueURL+`"}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+	})
+	t.Run(`SendMessagesForExpiry`, func(t *testing.T) {
+		for _, message := range []string{"pending expiry", "active expiry"} {
+			res, body := requestSQS(t, c, addr, "SendMessage", `{"QueueUrl":"`+queueURL+`","MessageBody":"`+message+`"}`)
+			require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		}
+	})
+	t.Run(`GetQueueAttributesWithVisibleMessages`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "GetQueueAttributes", `{"QueueUrl":"`+queueURL+`","AttributeNames":["ApproximateNumberOfMessages","ApproximateNumberOfMessagesDelayed","ApproximateNumberOfMessagesNotVisible"]}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		var response struct {
+			Attributes map[string]string `json:"Attributes"`
+		}
+		require.NoError(t, json.Unmarshal(body, &response))
+		assert.Equal(t, map[string]string{"ApproximateNumberOfMessages": "2", "ApproximateNumberOfMessagesDelayed": "0", "ApproximateNumberOfMessagesNotVisible": "0"}, response.Attributes)
+	})
+	t.Run(`ReceiveMessageBeforeExpiry`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "ReceiveMessage", `{"QueueUrl":"`+queueURL+`","VisibilityTimeout":120}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		var response struct {
+			Messages []struct {
+				ReceiptHandle string `json:"ReceiptHandle"`
+			} `json:"Messages"`
+		}
+		require.NoError(t, json.Unmarshal(body, &response))
+		require.Len(t, response.Messages, 1)
+		receiptHandle = response.Messages[0].ReceiptHandle
+	})
+	t.Run(`GetQueueAttributesWithInFlightMessages`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "GetQueueAttributes", `{"QueueUrl":"`+queueURL+`","AttributeNames":["All"]}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		var response struct {
+			Attributes map[string]string `json:"Attributes"`
+		}
+		require.NoError(t, json.Unmarshal(body, &response))
+		assert.Equal(t, "1", response.Attributes["ApproximateNumberOfMessages"])
+		assert.Equal(t, "0", response.Attributes["ApproximateNumberOfMessagesDelayed"])
+		assert.Equal(t, "1", response.Attributes["ApproximateNumberOfMessagesNotVisible"])
+	})
+	t.Run(`ReceiveMessageAfterRetentionExpiry`, func(t *testing.T) {
+		time.Sleep(65 * time.Second)
+		res, body := requestSQS(t, c, addr, "ReceiveMessage", `{"QueueUrl":"`+queueURL+`","MaxNumberOfMessages":10}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		assert.Equal(t, `{"Messages":[]}`, string(body))
+	})
+	t.Run(`DeleteMessageAfterRetentionExpiry`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "DeleteMessage", `{"QueueUrl":"`+queueURL+`","ReceiptHandle":"`+receiptHandle+`"}`)
+		require.Equal(t, http.StatusBadRequest, res.StatusCode, string(body))
+		assert.Equal(t, `Receipt handle is invalid`, string(body))
 	})
 	t.Run(`DeleteQueue`, func(t *testing.T) {
 		res, body := requestSQS(t, c, addr, "DeleteQueue", `{"QueueUrl":"`+queueURL+`"}`)
