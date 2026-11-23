@@ -68,8 +68,12 @@ wasm-control-basic:
 	cd module/control-basic && tinygo build -buildmode=wasi-legacy -target=wasi -opt=s -gc=leaking -scheduler=none -o ../../embed/wasm/control-basic.wasm -no-debug
 wasm-control-basic-dev:
 	cd module/control-basic && tinygo build -buildmode=wasi-legacy -target=wasi -opt=2 -gc=leaking -scheduler=none -o ../../embed/wasm/control-basic.dev.wasm
-wasm-dev: wasm-storage-queue-dev wasm-service-http-dev wasm-control-basic-dev
-wasm-prod: wasm-storage-queue wasm-service-http wasm-control-basic
+wasm-bridge-cron:
+	cd module/bridge-cron && tinygo build -buildmode=wasi-legacy -target=wasi -opt=s -gc=leaking -scheduler=none -o ../../embed/wasm/bridge-cron.wasm -no-debug
+wasm-bridge-cron-dev:
+	cd module/bridge-cron && tinygo build -buildmode=wasi-legacy -target=wasi -opt=2 -gc=leaking -scheduler=none -o ../../embed/wasm/bridge-cron.dev.wasm
+wasm-dev: wasm-storage-queue-dev wasm-service-http-dev wasm-control-basic-dev wasm-bridge-cron-dev
+wasm-prod: wasm-storage-queue wasm-service-http wasm-control-basic wasm-bridge-cron
 wasm-go: wasm-dev wasm-prod
 
 wasm: wasm-go

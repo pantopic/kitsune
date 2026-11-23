@@ -7,16 +7,18 @@ import (
 )
 
 const (
-	NameServiceHttp  = "pantopic/kitsune/service/http"
-	NameStorageQueue = "pantopic/kitsune/storage/queue"
-	NameControlBasic = "pantopic/kitsune/control/basic"
-	Version          = 0
+	BridgeCron   = "pantopic/kitsune/bridge/cron"
+	ServiceHttp  = "pantopic/kitsune/service/http"
+	StorageQueue = "pantopic/kitsune/storage/queue"
+	ControlBasic = "pantopic/kitsune/control/basic"
+	Version      = 0
 )
 
 func Register(c pantopic.ModuleRegistry) {
-	c.RegisterService(NameServiceHttp, WasmServiceHttp)
-	c.RegisterStorage(NameStorageQueue, WasmStorageQueue)
-	c.RegisterControl(NameControlBasic, WasmControlBasic)
+	c.RegisterBridge(BridgeCron, WasmBridgeCron)
+	c.RegisterService(ServiceHttp, WasmServiceHttp)
+	c.RegisterStorage(StorageQueue, WasmStorageQueue)
+	c.RegisterControl(ControlBasic, WasmControlBasic)
 }
 
 //go:embed wasm/service-http.wasm
@@ -36,6 +38,12 @@ var WasmControlBasic []byte
 
 //go:embed wasm/control-basic.dev.wasm
 var WasmControlBasicDev []byte
+
+//go:embed wasm/bridge-cron.wasm
+var WasmBridgeCron []byte
+
+//go:embed wasm/bridge-cron.dev.wasm
+var WasmBridgeCronDev []byte
 
 /*
 //go:embed wasm/service-http.zig.wasm

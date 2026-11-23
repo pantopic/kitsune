@@ -27,6 +27,7 @@ func reconcile(component *pb.Component) uint32 {
 	if !found {
 		_, err := cluster.ShardCreate(`queue`, `pantopic/kitsune/storage/queue`,
 			cluster.WithTags(component.Tags),
+			cluster.WithTag(`pantopic:bridge:cron`, "pantopic/kitsune/bridge/cron"),
 			cluster.Persistent())
 		if err != nil {
 			println(err)

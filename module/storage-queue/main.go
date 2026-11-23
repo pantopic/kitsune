@@ -54,7 +54,7 @@ func update(index uint64, c []byte) (value uint64, data []byte) {
 		if err = req.UnmarshalVT(c[:len(c)-1]); err != nil {
 			return 400, []byte(`Invalid CreateQueue request`)
 		}
-		q, err := dbQueue.createInTxn(txn, []byte(req.QueueName))
+		q, err := dbQueue.createInTxn(txn, []byte(req.QueueName), req.Attributes)
 		if err != nil {
 			return 400, []byte(err.Error())
 		}
@@ -63,39 +63,79 @@ func update(index uint64, c []byte) (value uint64, data []byte) {
 			panic(`Unable to marshal response: ` + err.Error())
 		}
 		value = 200
-	case cmd.QUEUE_PURGE:
-		// Find queue
-		//   else return error
-		// Delete message (prefix queue_id)
+	case cmd.QUEUE_SET_ATTRIBUTES:
+		req := &pb.SetQueueAttributesRequest{}
+		if err = req.UnmarshalVT(c[:len(c)-1]); err != nil {
+			return 400, []byte(`Invalid SetQueueAttributes request`)
+		}
+		if err = dbQueue.setAttributes(txn, []byte(req.QueueName), req.Attributes); err != nil {
+			return 400, []byte(err.Error())
+		}
+		value = 200
 	case cmd.QUEUE_DELETE:
-		// Find queue
-		//   else return error
-		// Delete queue_id
-		// Delete queue
-		// Delete queue_stat
-		// Delete message (prefix queue_id)
+		req := &pb.DeleteQueueRequest{}
+		if err = req.UnmarshalVT(c[:len(c)-1]); err != nil {
+			return 400, []byte(`Invalid DeleteQueue request`)
+		}
+		if err = dbQueue.delete(txn, []byte(req.QueueName)); err != nil {
+			return 400, []byte(err.Error())
+		}
+		value = 200
+	case cmd.QUEUE_PURGE:
+		req := &pb.DeleteQueueRequest{}
+		if err = req.UnmarshalVT(c[:len(c)-1]); err != nil {
+			return 400, []byte(`Invalid PurgeQueue request`)
+		}
+		if err = dbQueue.purge(txn, []byte(req.QueueName)); err != nil {
+			return 400, []byte(err.Error())
+		}
+		value = 200
 	case cmd.MESSAGE_SEND:
-		// Find queue
-		//   else return error
-		// Find group
-		//   else insert group, group_name, group_stat
-		// Insert message
-		// Insert data
+		req := &pb.SendMessageRequest{}
+		if err = req.UnmarshalVT(c[:len(c)-1]); err != nil {
+			return 400, []byte(`Invalid SendMessage request`)
+		}
+		resp, sendErr := dbMessage.send(txn, req, epoch)
+		if sendErr != nil {
+			return 400, []byte(sendErr.Error())
+		}
+		data, err = resp.MarshalVT()
+		if err != nil {
+			return 500, []byte(err.Error())
+		}
+		value = 200
 	case cmd.MESSAGE_DELETE:
-		// Find message
-		//   else return error
-		// Delete message
-		// Delete message_active
-		// Delete message_expire
+		req := &pb.DeleteMessageRequest{}
+		if err = req.UnmarshalVT(c[:len(c)-1]); err != nil {
+			return 400, []byte(`Invalid DeleteMessage request`)
+		}
+		if err = dbMessage.delete(txn, req); err != nil {
+			return 400, []byte(err.Error())
+		}
+		value = 200
+	case cmd.MESSAGE_REFRESH:
+		req := &pb.ChangeMessageVisibilityRequest{}
+		if err = req.UnmarshalVT(c[:len(c)-1]); err != nil {
+			return 400, []byte(`Invalid ChangeMessageVisibility request`)
+		}
+		if err = dbMessage.refresh(txn, req, epoch); err != nil {
+			return 400, []byte(err.Error())
+		}
+		value = 200
 	case cmd.MESSAGE_RECEIVE:
-		// Find queue
-		//   else return error
-		// Scan message (prefix queue_id)
-		//   else return wait
-		// Delete message
-		// Insert message_active
-		// Insert message_expire
-		// Return data
+		req := &pb.ReceiveMessageRequest{}
+		if err = req.UnmarshalVT(c[:len(c)-1]); err != nil {
+			return 400, []byte(`Invalid ReceiveMessage request`)
+		}
+		resp, receiveErr := dbMessage.receive(txn, req, epoch)
+		if receiveErr != nil {
+			return 400, []byte(receiveErr.Error())
+		}
+		data, err = resp.MarshalVT()
+		if err != nil {
+			return 500, []byte(err.Error())
+		}
+		value = 200
 	case cmd.INTERNAL_TICK:
 		var req = &pb.TickRequest{}
 		if err = req.UnmarshalVT(c[:len(c)-1]); err != nil {
@@ -114,8 +154,9 @@ func update(index uint64, c []byte) (value uint64, data []byte) {
 		if err = dbMeta.setEpoch(txn, epoch); err != nil {
 			panic(`Unable to set epoch: ` + err.Error())
 		}
-		// message recycle
-		// message expire
+		if err = dbMessage.tick(txn, epoch); err != nil {
+			panic(`Unable to process message tick: ` + err.Error())
+		}
 		data, err = (&pb.TickResponse{
 			Epoch: epoch,
 		}).MarshalVT()
@@ -200,11 +241,63 @@ func read(q []byte) (val uint64, data []byte) {
 		}
 		return 200, data
 	case query.QUEUE_URL:
-		// Find queue
-		// Return queue url
+		req := &pb.GetQueueUrlRequest{}
+		if err := req.UnmarshalVT(q[:len(q)-1]); err != nil {
+			return 400, []byte(`Invalid GetQueueUrl request`)
+		}
+		err := mdb.View(func(txn mdb.Txn) error {
+			_, err := dbQueue.getID(txn, []byte(req.QueueName))
+			return err
+		})
+		if mdb.IsNotFound(err) {
+			return 400, []byte(ErrQueueDoesNotExist.Error())
+		}
+		if err != nil {
+			return 500, []byte(err.Error())
+		}
+		resp := &pb.GetQueueUrlResponse{QueueName: req.QueueName}
+		data, err := resp.MarshalVT()
+		if err != nil {
+			return 500, []byte(err.Error())
+		}
+		return 200, data
 	case query.QUEUE_ATTRIBUTES:
-		// Find queue
-		// Return queue attributes
+		req := &pb.GetQueueAttributesRequest{}
+		if err := req.UnmarshalVT(q[:len(q)-1]); err != nil {
+			return 400, []byte(`Invalid GetQueueAttributes request`)
+		}
+		var attributes map[string]string
+		err := mdb.View(func(txn mdb.Txn) error {
+			var err error
+			attributes, err = dbQueue.getAttributes(txn, []byte(req.QueueName))
+			return err
+		})
+		if mdb.IsNotFound(err) {
+			return 400, []byte(ErrQueueDoesNotExist.Error())
+		}
+		if err != nil {
+			if err == ErrQueueDoesNotExist {
+				return 400, []byte(err.Error())
+			}
+			return 500, []byte(err.Error())
+		}
+		selected := make(map[string]string)
+		if containsAttribute(req.AttributeNames, "All") {
+			selected = attributes
+		} else {
+			for _, name := range req.AttributeNames {
+				value, ok := attributes[name]
+				if !ok {
+					return 400, []byte(ErrQueueAttributeNameInvalid.Error())
+				}
+				selected[name] = value
+			}
+		}
+		data, err := (&pb.GetQueueAttributesResponse{Attributes: selected}).MarshalVT()
+		if err != nil {
+			return 500, []byte(err.Error())
+		}
+		return 200, data
 	case query.QUEUE_DEAD_LETTER_SOURCE:
 		// Find queue
 		// Return queue dead letter sources
@@ -212,4 +305,13 @@ func read(q []byte) (val uint64, data []byte) {
 		return 400, []byte(`unrecognized query`)
 	}
 	return 500, []byte(`unreachable`)
+}
+
+func containsAttribute(names []string, name string) bool {
+	for _, current := range names {
+		if current == name {
+			return true
+		}
+	}
+	return false
 }

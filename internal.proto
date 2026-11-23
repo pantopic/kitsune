@@ -34,6 +34,7 @@ message ListQueuesResponse {
 
 message CreateQueueRequest {
   string QueueName = 1;
+  map<string, string> Attributes = 2;
 }
 
 message CreateQueueResponse {
@@ -44,10 +45,78 @@ message QueueListResponse {
   repeated string QueueNames = 1;
 }
 
+message GetQueueUrlRequest {
+  string QueueName = 1;
+}
+
+message GetQueueUrlResponse {
+  string QueueName = 1;
+}
+
+message DeleteQueueRequest {
+  string QueueName = 1;
+}
+
 message GetQueueAttributesRequest {
-  string QueueUrl = 1;
+  string QueueName = 1;
+  repeated string AttributeNames = 2;
 }
 
 message GetQueueAttributesResponse {
   map<string, string> Attributes = 1;
+}
+
+message SetQueueAttributesRequest {
+  string QueueName = 1;
+  map<string, string> Attributes = 2;
+}
+
+message QueueProperties {
+  map<string, string> Attributes = 1;
+}
+
+message SendMessageRequest {
+  string QueueName = 1;
+  string MessageBody = 2;
+  uint64 DelaySeconds = 3;
+}
+
+message SendMessageResponse {
+  string MessageId = 1;
+  string Md5OfMessageBody = 2;
+}
+
+message ReceiveMessageRequest {
+  string QueueName = 1;
+  uint64 MaxNumberOfMessages = 2;
+  uint64 VisibilityTimeout = 3;
+}
+
+message ReceivedMessage {
+  string MessageId = 1;
+  string ReceiptHandle = 2;
+  string Body = 3;
+}
+
+message ReceiveMessageResponse {
+  repeated ReceivedMessage Messages = 1;
+}
+
+message DeleteMessageRequest {
+  string QueueName = 1;
+  string ReceiptHandle = 2;
+}
+
+message ChangeMessageVisibilityRequest {
+  string QueueName = 1;
+  string ReceiptHandle = 2;
+  uint64 VisibilityTimeout = 3;
+}
+
+message StoredMessage {
+  uint64 Expires = 1;
+  uint64 SentTimestamp = 2;
+  uint32 ReceiveCount = 3;
+  uint64 ReadyAt = 4;
+  uint64 ActiveUntil = 5;
 }

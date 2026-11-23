@@ -16,6 +16,9 @@ var (
 
 	// Autoincrement cursor for generating queue ids
 	metaKeyQueueID = []byte(`queue_id`)
+
+	// Autoincrement cursor for generating message ids
+	metaKeyMessageID = []byte(`message_id`)
 )
 
 type dbMetaImpl struct {
@@ -30,6 +33,7 @@ func (db dbMetaImpl) init(txn mdb.Txn) (index uint64) {
 		metaKeyTerm,
 		metaKeyEpoch,
 		metaKeyQueueID,
+		metaKeyMessageID,
 	} {
 		if _, err = db.db.getUint64(txn, k); mdb.IsNotFound(err) {
 			err = db.putUint64(txn, k, 0)
@@ -74,4 +78,12 @@ func (db dbMetaImpl) getQueueID(txn mdb.Txn) (val uint64, err error) {
 
 func (db dbMetaImpl) setQueueID(txn mdb.Txn, val uint64) (err error) {
 	return db.putUint64(txn, metaKeyQueueID, val)
+}
+
+func (db dbMetaImpl) getMessageID(txn mdb.Txn) (val uint64, err error) {
+	return db.getUint64(txn, metaKeyMessageID)
+}
+
+func (db dbMetaImpl) setMessageID(txn mdb.Txn, val uint64) (err error) {
+	return db.putUint64(txn, metaKeyMessageID, val)
 }
