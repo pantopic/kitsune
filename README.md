@@ -13,6 +13,10 @@ Basic functionality is WIP.
 per-entry failures. Message attributes, system attributes, and FIFO fields are
 not yet supported and are rejected for batch entries.
 
+New message deliveries use generation-bearing receipt handles. Existing active
+legacy handles are supported under their previous validity rules, but older
+module versions cannot use the new handles.
+
 Not included in basic functionality:
 - Queue Tags
 - Permissions

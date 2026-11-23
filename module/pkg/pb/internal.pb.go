@@ -766,12 +766,14 @@ func (x *ChangeMessageVisibilityRequest) GetVisibilityTimeout() uint64 {
 }
 
 type StoredMessage struct {
-	unknownFields []byte
-	Expires       uint64 `protobuf:"varint,1,opt,name=Expires,proto3" json:"Expires,omitempty"`
-	SentTimestamp uint64 `protobuf:"varint,2,opt,name=SentTimestamp,proto3" json:"SentTimestamp,omitempty"`
-	ReceiveCount  uint32 `protobuf:"varint,3,opt,name=ReceiveCount,proto3" json:"ReceiveCount,omitempty"`
-	ReadyAt       uint64 `protobuf:"varint,4,opt,name=ReadyAt,proto3" json:"ReadyAt,omitempty"`
-	ActiveUntil   uint64 `protobuf:"varint,5,opt,name=ActiveUntil,proto3" json:"ActiveUntil,omitempty"`
+	unknownFields     []byte
+	Expires           uint64 `protobuf:"varint,1,opt,name=Expires,proto3" json:"Expires,omitempty"`
+	SentTimestamp     uint64 `protobuf:"varint,2,opt,name=SentTimestamp,proto3" json:"SentTimestamp,omitempty"`
+	ReceiveCount      uint32 `protobuf:"varint,3,opt,name=ReceiveCount,proto3" json:"ReceiveCount,omitempty"`
+	ReadyAt           uint64 `protobuf:"varint,4,opt,name=ReadyAt,proto3" json:"ReadyAt,omitempty"`
+	ActiveUntil       uint64 `protobuf:"varint,5,opt,name=ActiveUntil,proto3" json:"ActiveUntil,omitempty"`
+	ReceiptGeneration uint64 `protobuf:"varint,6,opt,name=ReceiptGeneration,proto3" json:"ReceiptGeneration,omitempty"`
+	ReceiptTimeout    uint64 `protobuf:"varint,7,opt,name=ReceiptTimeout,proto3" json:"ReceiptTimeout,omitempty"`
 }
 
 func (x *StoredMessage) Reset() {
@@ -811,6 +813,20 @@ func (x *StoredMessage) GetReadyAt() uint64 {
 func (x *StoredMessage) GetActiveUntil() uint64 {
 	if x != nil {
 		return x.ActiveUntil
+	}
+	return 0
+}
+
+func (x *StoredMessage) GetReceiptGeneration() uint64 {
+	if x != nil {
+		return x.ReceiptGeneration
+	}
+	return 0
+}
+
+func (x *StoredMessage) GetReceiptTimeout() uint64 {
+	if x != nil {
+		return x.ReceiptTimeout
 	}
 	return 0
 }
@@ -2750,6 +2766,16 @@ func (x *StoredMessage) MarshalProtoJSON(s *json.MarshalState) {
 		s.WriteObjectField("ActiveUntil")
 		s.WriteUint64(x.ActiveUntil)
 	}
+	if x.ReceiptGeneration != 0 || s.HasField("ReceiptGeneration") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("ReceiptGeneration")
+		s.WriteUint64(x.ReceiptGeneration)
+	}
+	if x.ReceiptTimeout != 0 || s.HasField("ReceiptTimeout") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("ReceiptTimeout")
+		s.WriteUint64(x.ReceiptTimeout)
+	}
 	s.WriteObjectEnd()
 }
 
@@ -2782,6 +2808,12 @@ func (x *StoredMessage) UnmarshalProtoJSON(s *json.UnmarshalState) {
 		case "ActiveUntil":
 			s.AddField("ActiveUntil")
 			x.ActiveUntil = s.ReadUint64()
+		case "ReceiptGeneration":
+			s.AddField("ReceiptGeneration")
+			x.ReceiptGeneration = s.ReadUint64()
+		case "ReceiptTimeout":
+			s.AddField("ReceiptTimeout")
+			x.ReceiptTimeout = s.ReadUint64()
 		}
 	})
 }
@@ -4112,6 +4144,16 @@ func (m *StoredMessage) MarshalToSizedBufferVT(dAtA []byte) (int, error) {
 	if m.unknownFields != nil {
 		i = protobuf_go_lite.EncodeRawBytes(dAtA, i, m.unknownFields)
 	}
+	if m.ReceiptTimeout != 0 {
+		i = protobuf_go_lite.EncodeVarint(dAtA, i, uint64(m.ReceiptTimeout))
+		i--
+		dAtA[i] = 0x38
+	}
+	if m.ReceiptGeneration != 0 {
+		i = protobuf_go_lite.EncodeVarint(dAtA, i, uint64(m.ReceiptGeneration))
+		i--
+		dAtA[i] = 0x30
+	}
 	if m.ActiveUntil != 0 {
 		i = protobuf_go_lite.EncodeVarint(dAtA, i, uint64(m.ActiveUntil))
 		i--
@@ -4531,6 +4573,8 @@ func (m *StoredMessage) SizeVT() (n int) {
 	n += protobuf_go_lite.SizeVarintNonZero(1, m.ReceiveCount)
 	n += protobuf_go_lite.SizeVarintNonZero(1, m.ReadyAt)
 	n += protobuf_go_lite.SizeVarintNonZero(1, m.ActiveUntil)
+	n += protobuf_go_lite.SizeVarintNonZero(1, m.ReceiptGeneration)
+	n += protobuf_go_lite.SizeVarintNonZero(1, m.ReceiptTimeout)
 	n += len(m.unknownFields)
 	return n
 }
@@ -6526,6 +6570,24 @@ func (m *StoredMessage) UnmarshalVT(dAtA []byte) error {
 			}
 			m.ActiveUntil = 0
 			m.ActiveUntil, iNdEx, err = protobuf_go_lite.DecodeVarint(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+		case 6:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ReceiptGeneration", wireType)
+			}
+			m.ReceiptGeneration = 0
+			m.ReceiptGeneration, iNdEx, err = protobuf_go_lite.DecodeVarint(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+		case 7:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ReceiptTimeout", wireType)
+			}
+			m.ReceiptTimeout = 0
+			m.ReceiptTimeout, iNdEx, err = protobuf_go_lite.DecodeVarint(dAtA, iNdEx)
 			if err != nil {
 				return err
 			}

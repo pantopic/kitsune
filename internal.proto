@@ -153,4 +153,6 @@ message StoredMessage {
   uint32 ReceiveCount = 3;
   uint64 ReadyAt = 4;
   uint64 ActiveUntil = 5;
+  uint64 ReceiptGeneration = 6;
+  uint64 ReceiptTimeout = 7;
 }

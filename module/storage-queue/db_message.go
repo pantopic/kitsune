@@ -20,6 +20,7 @@ var (
 	ErrMessageDelayInvalid  = errors.New(`Message delay invalid`)
 	ErrReceiptHandleInvalid = errors.New(`Receipt handle is invalid`)
 	ErrMessageBatchLimit    = errors.New(`Too many messages requested`)
+	ErrReceiptLimit         = errors.New(`Message receipt generation exhausted`)
 )
 
 type dbMessageImpl struct {
@@ -295,6 +296,9 @@ func (db dbMessageImpl) receive(txn mdb.Txn, req *pb.ReceiveMessageRequest, epoc
 		if err := state.UnmarshalVT(stateBytes); err != nil {
 			return nil, err
 		}
+		if state.ReceiptGeneration == ^uint64(0) {
+			return nil, ErrReceiptLimit
+		}
 		body, err := txn.Get(db.data.i, primaryKey, nil)
 		if err != nil {
 			return nil, err
@@ -307,11 +311,9 @@ func (db dbMessageImpl) receive(txn mdb.Txn, req *pb.ReceiveMessageRequest, epoc
 			return nil, err
 		}
 
-		if state.ActiveUntil > 0 {
-			previousActiveKey := append(append(append([]byte(nil), binary.BigEndian.AppendUint64(nil, state.ActiveUntil)...), queueIDBytes...), groupIDBytes...)
-			if err := txn.Del(db.active.i, previousActiveKey, messageIDBytes); err != nil && !mdb.IsNotFound(err) {
-				return nil, err
-			}
+		previousActiveKey := append(append(append([]byte(nil), binary.BigEndian.AppendUint64(nil, state.ActiveUntil)...), queueIDBytes...), groupIDBytes...)
+		if err := txn.Del(db.active.i, previousActiveKey, messageIDBytes); err != nil && !mdb.IsNotFound(err) {
+			return nil, err
 		}
 
 		timeout := epoch + visibility
@@ -321,6 +323,8 @@ func (db dbMessageImpl) receive(txn mdb.Txn, req *pb.ReceiveMessageRequest, epoc
 		}
 		state.ReceiveCount++
 		state.ActiveUntil = timeout
+		state.ReceiptGeneration++
+		state.ReceiptTimeout = timeout
 		if visibility == 0 {
 			state.ReadyAt = epoch
 			readyKey := append(append(append([]byte(nil), queueIDBytes...), binary.BigEndian.AppendUint64(nil, epoch)...), groupIDBytes...)
@@ -336,6 +340,7 @@ func (db dbMessageImpl) receive(txn mdb.Txn, req *pb.ReceiveMessageRequest, epoc
 			return nil, err
 		}
 		receipt := append(append(append(append([]byte(nil), queueIDBytes...), groupIDBytes...), messageIDBytes...), binary.BigEndian.AppendUint64(nil, timeout)...)
+		receipt = binary.BigEndian.AppendUint64(receipt, state.ReceiptGeneration)
 		resp.Messages = append(resp.Messages, &pb.ReceivedMessage{
 			MessageId:     hex.EncodeToString(messageIDBytes),
 			ReceiptHandle: hex.EncodeToString(receipt),
@@ -376,11 +381,9 @@ func (db dbMessageImpl) tick(txn mdb.Txn, epoch uint64) error {
 		}
 		queueIDBytes := expireKey[8:16]
 		groupIDBytes := expireKey[16:24]
-		if state.ActiveUntil > 0 {
-			activeKey := append(append(append([]byte(nil), binary.BigEndian.AppendUint64(nil, state.ActiveUntil)...), queueIDBytes...), groupIDBytes...)
-			if err := txn.Del(db.active.i, activeKey, messageID); err != nil && !mdb.IsNotFound(err) {
-				return err
-			}
+		activeKey := append(append(append([]byte(nil), binary.BigEndian.AppendUint64(nil, state.ActiveUntil)...), queueIDBytes...), groupIDBytes...)
+		if err := txn.Del(db.active.i, activeKey, messageID); err != nil && !mdb.IsNotFound(err) {
+			return err
 		}
 		pendingKey := append(append(append([]byte(nil), queueIDBytes...), binary.BigEndian.AppendUint64(nil, state.ReadyAt)...), groupIDBytes...)
 		if err := txn.Del(db.pending.i, pendingKey, messageID); err != nil && !mdb.IsNotFound(err) {
@@ -481,49 +484,69 @@ func (db dbMessageImpl) due(txn mdb.Txn, index db, epoch uint64) (keys, values [
 	return keys, values, nil
 }
 
-func (db dbMessageImpl) delete(txn mdb.Txn, req *pb.DeleteMessageRequest) error {
-	receipt, err := hex.DecodeString(req.ReceiptHandle)
-	if err != nil || len(receipt) != 32 {
-		return ErrReceiptHandleInvalid
+func (db dbMessageImpl) lookupReceipt(txn mdb.Txn, queueName, handle string) ([]byte, *pb.StoredMessage, []byte, error) {
+	receipt, err := hex.DecodeString(handle)
+	if err != nil || (len(receipt) != 32 && len(receipt) != 40) {
+		return nil, nil, nil, ErrReceiptHandleInvalid
 	}
-	queueID, err := dbQueue.getID(txn, []byte(req.QueueName))
+	queueID, err := dbQueue.getID(txn, []byte(queueName))
 	if mdb.IsNotFound(err) || (err == nil && queueID != binary.BigEndian.Uint64(receipt[:8])) {
-		return ErrReceiptHandleInvalid
+		return nil, nil, nil, ErrReceiptHandleInvalid
 	}
 	if err != nil {
-		return err
+		return nil, nil, nil, err
+	}
+	primaryKey := receipt[:24]
+	stateBytes, err := txn.Get(db.attr.i, primaryKey, nil)
+	if mdb.IsNotFound(err) {
+		return nil, nil, nil, ErrReceiptHandleInvalid
+	}
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	stateBytes, err = db.attr.trimChecksum(primaryKey, stateBytes)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	state := &pb.StoredMessage{}
+	if err := state.UnmarshalVT(stateBytes); err != nil {
+		return nil, nil, nil, err
+	}
+	timeout := binary.BigEndian.Uint64(receipt[24:32])
+	if len(receipt) == 32 {
+		if state.ReceiptGeneration != 0 || state.ActiveUntil != timeout {
+			return nil, nil, nil, ErrReceiptHandleInvalid
+		}
+	} else if state.ReceiptGeneration == 0 || state.ReceiptGeneration != binary.BigEndian.Uint64(receipt[32:]) || state.ReceiptTimeout != timeout {
+		return nil, nil, nil, ErrReceiptHandleInvalid
 	}
 	messageIDBytes := receipt[16:24]
-	timeout := binary.BigEndian.Uint64(receipt[24:32])
-	activeKey := append(binary.BigEndian.AppendUint64(nil, timeout), receipt[:16]...)
+	activeKey := append(binary.BigEndian.AppendUint64(nil, state.ActiveUntil), receipt[:16]...)
 	cur, err := txn.OpenCursor(db.active.i)
 	if err != nil {
-		return err
+		return nil, nil, nil, err
 	}
 	_, _, err = cur.Get(activeKey, messageIDBytes, mdb.GetBoth)
 	cur.Close()
 	if mdb.IsNotFound(err) {
-		return ErrReceiptHandleInvalid
+		return nil, nil, nil, ErrReceiptHandleInvalid
 	}
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return receipt, state, activeKey, nil
+}
+
+func (db dbMessageImpl) delete(txn mdb.Txn, req *pb.DeleteMessageRequest) error {
+	receipt, state, activeKey, err := db.lookupReceipt(txn, req.QueueName, req.ReceiptHandle)
 	if err != nil {
 		return err
 	}
+	messageIDBytes := receipt[16:24]
 	if err := txn.Del(db.active.i, activeKey, messageIDBytes); err != nil {
 		return err
 	}
 	primaryKey := append([]byte(nil), receipt[:24]...)
-	stateBytes, err := txn.Get(db.attr.i, primaryKey, nil)
-	if err != nil {
-		return err
-	}
-	stateBytes, err = db.attr.trimChecksum(primaryKey, stateBytes)
-	if err != nil {
-		return err
-	}
-	state := &pb.StoredMessage{}
-	if err := state.UnmarshalVT(stateBytes); err != nil {
-		return err
-	}
 	pendingKey := append(append(append([]byte(nil), receipt[:8]...), binary.BigEndian.AppendUint64(nil, state.ReadyAt)...), receipt[8:16]...)
 	if err := txn.Del(db.pending.i, pendingKey, messageIDBytes); err != nil && !mdb.IsNotFound(err) {
 		return err
@@ -553,44 +576,12 @@ func (db dbMessageImpl) refresh(txn mdb.Txn, req *pb.ChangeMessageVisibilityRequ
 	if req.VisibilityTimeout > globals.MAX_MESSAGE_VISIBILITY() {
 		return ErrQueueAttributeValueInvalid
 	}
-	receipt, err := hex.DecodeString(req.ReceiptHandle)
-	if err != nil || len(receipt) != 32 {
-		return ErrReceiptHandleInvalid
-	}
-	queueID, err := dbQueue.getID(txn, []byte(req.QueueName))
-	if mdb.IsNotFound(err) || (err == nil && queueID != binary.BigEndian.Uint64(receipt[:8])) {
-		return ErrReceiptHandleInvalid
-	}
+	receipt, state, activeKey, err := db.lookupReceipt(txn, req.QueueName, req.ReceiptHandle)
 	if err != nil {
 		return err
 	}
 	messageIDBytes := receipt[16:24]
-	activeKey := append(binary.BigEndian.AppendUint64(nil, binary.BigEndian.Uint64(receipt[24:32])), receipt[:16]...)
-	cur, err := txn.OpenCursor(db.active.i)
-	if err != nil {
-		return err
-	}
-	_, _, err = cur.Get(activeKey, messageIDBytes, mdb.GetBoth)
-	cur.Close()
-	if mdb.IsNotFound(err) {
-		return ErrReceiptHandleInvalid
-	}
-	if err != nil {
-		return err
-	}
 	primaryKey := append([]byte(nil), receipt[:24]...)
-	stateBytes, err := txn.Get(db.attr.i, primaryKey, nil)
-	if err != nil {
-		return err
-	}
-	stateBytes, err = db.attr.trimChecksum(primaryKey, stateBytes)
-	if err != nil {
-		return err
-	}
-	state := &pb.StoredMessage{}
-	if err := state.UnmarshalVT(stateBytes); err != nil {
-		return err
-	}
 	if err := txn.Del(db.active.i, activeKey, messageIDBytes); err != nil {
 		return err
 	}
@@ -614,7 +605,7 @@ func (db dbMessageImpl) refresh(txn mdb.Txn, req *pb.ChangeMessageVisibilityRequ
 			return err
 		}
 	}
-	stateBytes, err = state.MarshalVT()
+	stateBytes, err := state.MarshalVT()
 	if err != nil {
 		return err
 	}

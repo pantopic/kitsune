@@ -144,8 +144,16 @@ func update(index uint64, c []byte) (value uint64, data []byte) {
 		if err = req.UnmarshalVT(c[:len(c)-1]); err != nil {
 			return 400, []byte(`Invalid ReceiveMessage request`)
 		}
-		resp, receiveErr := dbMessage.receive(txn, req, epoch)
+		var resp *pb.ReceiveMessageResponse
+		receiveErr := txn.Sub(func(receiveTxn mdb.Txn) error {
+			var err error
+			resp, err = dbMessage.receive(receiveTxn, req, epoch)
+			return err
+		})
 		if receiveErr != nil {
+			if receiveErr == ErrReceiptLimit {
+				return 500, []byte(receiveErr.Error())
+			}
 			return 400, []byte(receiveErr.Error())
 		}
 		data, err = resp.MarshalVT()
