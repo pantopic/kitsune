@@ -32,6 +32,7 @@ func TestAll(t *testing.T) {
 	queueURL := "http://" + addr + "/000000000000/kitsune-test-queue"
 	var messageID string
 	var delayedMessageID string
+	var zeroVisibilityMessageID string
 	var receiptHandle string
 
 	t.Run(`content-type`, func(t *testing.T) {
@@ -180,6 +181,49 @@ func TestAll(t *testing.T) {
 		receiptHandle = receiveResponse.Messages[0].ReceiptHandle
 	})
 	t.Run(`DeleteMessage`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "DeleteMessage", `{"QueueUrl":"`+queueURL+`","ReceiptHandle":"`+receiptHandle+`"}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		assert.Equal(t, `{}`, string(body))
+	})
+	t.Run(`SendMessageForZeroVisibility`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "SendMessage", `{"QueueUrl":"`+queueURL+`","MessageBody":"zero visibility"}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		var sendResponse struct {
+			MessageID string `json:"MessageId"`
+		}
+		require.NoError(t, json.Unmarshal(body, &sendResponse))
+		require.NotEmpty(t, sendResponse.MessageID)
+		zeroVisibilityMessageID = sendResponse.MessageID
+	})
+	t.Run(`ReceiveMessageWithZeroVisibility`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "ReceiveMessage", `{"QueueUrl":"`+queueURL+`","VisibilityTimeout":0}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		var receiveResponse struct {
+			Messages []struct {
+				MessageID string `json:"MessageId"`
+				Body      string `json:"Body"`
+			} `json:"Messages"`
+		}
+		require.NoError(t, json.Unmarshal(body, &receiveResponse))
+		require.Len(t, receiveResponse.Messages, 1)
+		assert.Equal(t, zeroVisibilityMessageID, receiveResponse.Messages[0].MessageID)
+		assert.Equal(t, "zero visibility", receiveResponse.Messages[0].Body)
+	})
+	t.Run(`ReceiveMessageAgainAfterZeroVisibility`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "ReceiveMessage", `{"QueueUrl":"`+queueURL+`"}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		var receiveResponse struct {
+			Messages []struct {
+				MessageID     string `json:"MessageId"`
+				ReceiptHandle string `json:"ReceiptHandle"`
+			} `json:"Messages"`
+		}
+		require.NoError(t, json.Unmarshal(body, &receiveResponse))
+		require.Len(t, receiveResponse.Messages, 1)
+		assert.Equal(t, zeroVisibilityMessageID, receiveResponse.Messages[0].MessageID)
+		receiptHandle = receiveResponse.Messages[0].ReceiptHandle
+	})
+	t.Run(`DeleteMessageAfterZeroVisibility`, func(t *testing.T) {
 		res, body := requestSQS(t, c, addr, "DeleteMessage", `{"QueueUrl":"`+queueURL+`","ReceiptHandle":"`+receiptHandle+`"}`)
 		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
 		assert.Equal(t, `{}`, string(body))

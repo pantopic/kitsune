@@ -136,7 +136,7 @@ func (db dbMessageImpl) receive(txn mdb.Txn, req *pb.ReceiveMessageRequest, epoc
 		return nil, err
 	}
 	visibility := req.VisibilityTimeout
-	if visibility == 0 {
+	if visibility == 0 && !req.VisibilityTimeoutSet {
 		visibility, err = strconv.ParseUint(queueAttributes["VisibilityTimeout"], 10, 64)
 		if err != nil {
 			return nil, err
@@ -206,6 +206,13 @@ func (db dbMessageImpl) receive(txn mdb.Txn, req *pb.ReceiveMessageRequest, epoc
 			return nil, err
 		}
 
+		if state.ActiveUntil > 0 {
+			previousActiveKey := append(append(append([]byte(nil), binary.BigEndian.AppendUint64(nil, state.ActiveUntil)...), queueIDBytes...), groupIDBytes...)
+			if err := txn.Del(db.active.i, previousActiveKey, messageIDBytes); err != nil && !mdb.IsNotFound(err) {
+				return nil, err
+			}
+		}
+
 		timeout := epoch + visibility
 		activeKey := append(append(append([]byte(nil), binary.BigEndian.AppendUint64(nil, timeout)...), queueIDBytes...), groupIDBytes...)
 		if err := txn.Put(db.active.i, activeKey, messageIDBytes, 0); err != nil {
@@ -213,6 +220,13 @@ func (db dbMessageImpl) receive(txn mdb.Txn, req *pb.ReceiveMessageRequest, epoc
 		}
 		state.ReceiveCount++
 		state.ActiveUntil = timeout
+		if visibility == 0 {
+			state.ReadyAt = epoch
+			readyKey := append(append(append([]byte(nil), queueIDBytes...), binary.BigEndian.AppendUint64(nil, epoch)...), groupIDBytes...)
+			if err := txn.Put(db.pending.i, readyKey, messageIDBytes, 0); err != nil {
+				return nil, err
+			}
+		}
 		stateBytes, err = state.MarshalVT()
 		if err != nil {
 			return nil, err
@@ -266,11 +280,10 @@ func (db dbMessageImpl) tick(txn mdb.Txn, epoch uint64) error {
 			if err := txn.Del(db.active.i, activeKey, messageID); err != nil && !mdb.IsNotFound(err) {
 				return err
 			}
-		} else {
-			pendingKey := append(append(append([]byte(nil), queueIDBytes...), binary.BigEndian.AppendUint64(nil, state.ReadyAt)...), groupIDBytes...)
-			if err := txn.Del(db.pending.i, pendingKey, messageID); err != nil && !mdb.IsNotFound(err) {
-				return err
-			}
+		}
+		pendingKey := append(append(append([]byte(nil), queueIDBytes...), binary.BigEndian.AppendUint64(nil, state.ReadyAt)...), groupIDBytes...)
+		if err := txn.Del(db.pending.i, pendingKey, messageID); err != nil && !mdb.IsNotFound(err) {
+			return err
 		}
 		if err := txn.Del(db.expire.i, expireKey, messageID); err != nil {
 			return err
@@ -410,6 +423,10 @@ func (db dbMessageImpl) delete(txn mdb.Txn, req *pb.DeleteMessageRequest) error 
 	if err := state.UnmarshalVT(stateBytes); err != nil {
 		return err
 	}
+	pendingKey := append(append(append([]byte(nil), receipt[:8]...), binary.BigEndian.AppendUint64(nil, state.ReadyAt)...), receipt[8:16]...)
+	if err := txn.Del(db.pending.i, pendingKey, messageIDBytes); err != nil && !mdb.IsNotFound(err) {
+		return err
+	}
 	expireKey := append(binary.BigEndian.AppendUint64(nil, state.Expires), receipt[:16]...)
 	if err := txn.Del(db.expire.i, expireKey, messageIDBytes); err != nil {
 		return err
@@ -474,6 +491,10 @@ func (db dbMessageImpl) refresh(txn mdb.Txn, req *pb.ChangeMessageVisibilityRequ
 		return err
 	}
 	if err := txn.Del(db.active.i, activeKey, messageIDBytes); err != nil {
+		return err
+	}
+	pendingKey := append(append(append([]byte(nil), receipt[:8]...), binary.BigEndian.AppendUint64(nil, state.ReadyAt)...), receipt[8:16]...)
+	if err := txn.Del(db.pending.i, pendingKey, messageIDBytes); err != nil && !mdb.IsNotFound(err) {
 		return err
 	}
 	state.ActiveUntil = epoch + req.VisibilityTimeout

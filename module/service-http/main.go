@@ -41,9 +41,9 @@ type sendMessageRequest struct {
 }
 
 type receiveMessageRequest struct {
-	QueueURL            string `json:"QueueUrl"`
-	MaxNumberOfMessages uint64 `json:"MaxNumberOfMessages"`
-	VisibilityTimeout   uint64 `json:"VisibilityTimeout"`
+	QueueURL            string  `json:"QueueUrl"`
+	MaxNumberOfMessages uint64  `json:"MaxNumberOfMessages"`
+	VisibilityTimeout   *uint64 `json:"VisibilityTimeout"`
 }
 
 type deleteMessageRequest struct {
@@ -262,10 +262,15 @@ func httpHandler(method, path []byte) {
 				http_server.Send(400, []byte(`invalid QueueUrl`))
 				return
 			}
+			var visibilityTimeout uint64
+			if req.VisibilityTimeout != nil {
+				visibilityTimeout = *req.VisibilityTimeout
+			}
 			b, err := (&pb.ReceiveMessageRequest{
-				QueueName:           name,
-				MaxNumberOfMessages: req.MaxNumberOfMessages,
-				VisibilityTimeout:   req.VisibilityTimeout,
+				QueueName:            name,
+				MaxNumberOfMessages:  req.MaxNumberOfMessages,
+				VisibilityTimeout:    visibilityTimeout,
+				VisibilityTimeoutSet: req.VisibilityTimeout != nil,
 			}).MarshalVT()
 			if err != nil {
 				http_server.Send(500, []byte(err.Error()))

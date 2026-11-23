@@ -418,10 +418,11 @@ func (x *SendMessageResponse) GetMd5OfMessageBody() string {
 }
 
 type ReceiveMessageRequest struct {
-	unknownFields       []byte
-	QueueName           string `protobuf:"bytes,1,opt,name=QueueName,proto3" json:"QueueName,omitempty"`
-	MaxNumberOfMessages uint64 `protobuf:"varint,2,opt,name=MaxNumberOfMessages,proto3" json:"MaxNumberOfMessages,omitempty"`
-	VisibilityTimeout   uint64 `protobuf:"varint,3,opt,name=VisibilityTimeout,proto3" json:"VisibilityTimeout,omitempty"`
+	unknownFields        []byte
+	QueueName            string `protobuf:"bytes,1,opt,name=QueueName,proto3" json:"QueueName,omitempty"`
+	MaxNumberOfMessages  uint64 `protobuf:"varint,2,opt,name=MaxNumberOfMessages,proto3" json:"MaxNumberOfMessages,omitempty"`
+	VisibilityTimeout    uint64 `protobuf:"varint,3,opt,name=VisibilityTimeout,proto3" json:"VisibilityTimeout,omitempty"`
+	VisibilityTimeoutSet bool   `protobuf:"varint,4,opt,name=VisibilityTimeoutSet,proto3" json:"VisibilityTimeoutSet,omitempty"`
 }
 
 func (x *ReceiveMessageRequest) Reset() {
@@ -449,6 +450,13 @@ func (x *ReceiveMessageRequest) GetVisibilityTimeout() uint64 {
 		return x.VisibilityTimeout
 	}
 	return 0
+}
+
+func (x *ReceiveMessageRequest) GetVisibilityTimeoutSet() bool {
+	if x != nil {
+		return x.VisibilityTimeoutSet
+	}
+	return false
 }
 
 type ReceivedMessage struct {
@@ -1866,6 +1874,11 @@ func (x *ReceiveMessageRequest) MarshalProtoJSON(s *json.MarshalState) {
 		s.WriteObjectField("VisibilityTimeout")
 		s.WriteUint64(x.VisibilityTimeout)
 	}
+	if x.VisibilityTimeoutSet || s.HasField("VisibilityTimeoutSet") {
+		s.WriteMoreIf(&wroteField)
+		s.WriteObjectField("VisibilityTimeoutSet")
+		s.WriteBool(x.VisibilityTimeoutSet)
+	}
 	s.WriteObjectEnd()
 }
 
@@ -1892,6 +1905,9 @@ func (x *ReceiveMessageRequest) UnmarshalProtoJSON(s *json.UnmarshalState) {
 		case "VisibilityTimeout":
 			s.AddField("VisibilityTimeout")
 			x.VisibilityTimeout = s.ReadUint64()
+		case "VisibilityTimeoutSet":
+			s.AddField("VisibilityTimeoutSet")
+			x.VisibilityTimeoutSet = s.ReadBool()
 		}
 	})
 }
@@ -3022,6 +3038,11 @@ func (m *ReceiveMessageRequest) MarshalToSizedBufferVT(dAtA []byte) (int, error)
 	if m.unknownFields != nil {
 		i = protobuf_go_lite.EncodeRawBytes(dAtA, i, m.unknownFields)
 	}
+	if m.VisibilityTimeoutSet {
+		i = protobuf_go_lite.EncodeBool(dAtA, i, m.VisibilityTimeoutSet)
+		i--
+		dAtA[i] = 0x20
+	}
 	if m.VisibilityTimeout != 0 {
 		i = protobuf_go_lite.EncodeVarint(dAtA, i, uint64(m.VisibilityTimeout))
 		i--
@@ -3523,6 +3544,7 @@ func (m *ReceiveMessageRequest) SizeVT() (n int) {
 	n += protobuf_go_lite.SizeStringNonEmpty(1, m.QueueName)
 	n += protobuf_go_lite.SizeVarintNonZero(1, m.MaxNumberOfMessages)
 	n += protobuf_go_lite.SizeVarintNonZero(1, m.VisibilityTimeout)
+	n += protobuf_go_lite.SizeBoolNonZero(1, m.VisibilityTimeoutSet)
 	n += len(m.unknownFields)
 	return n
 }
@@ -4833,6 +4855,16 @@ func (m *ReceiveMessageRequest) UnmarshalVT(dAtA []byte) error {
 			if err != nil {
 				return err
 			}
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field VisibilityTimeoutSet", wireType)
+			}
+			var v bool
+			v, iNdEx, err = protobuf_go_lite.DecodeVarintBool(dAtA, iNdEx)
+			if err != nil {
+				return err
+			}
+			m.VisibilityTimeoutSet = bool(v)
 		default:
 			iNdEx = preIndex
 			skippy, err := protobuf_go_lite.Skip(dAtA[iNdEx:])

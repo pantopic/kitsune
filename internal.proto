@@ -90,6 +90,7 @@ message ReceiveMessageRequest {
   string QueueName = 1;
   uint64 MaxNumberOfMessages = 2;
   uint64 VisibilityTimeout = 3;
+  bool VisibilityTimeoutSet = 4;
 }
 
 message ReceivedMessage {
