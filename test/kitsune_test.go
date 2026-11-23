@@ -153,6 +153,31 @@ func TestAll(t *testing.T) {
 		assert.Equal(t, messageID, receiveResponse.Messages[0].MessageID)
 		receiptHandle = receiveResponse.Messages[0].ReceiptHandle
 	})
+	t.Run(`ChangeMessageVisibilityTimeout`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "ChangeMessageVisibility", `{"QueueUrl":"`+queueURL+`","ReceiptHandle":"`+receiptHandle+`","VisibilityTimeout":2}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		assert.Equal(t, `{}`, string(body))
+	})
+	t.Run(`ReceiveMessageBeforeVisibilityTimeout`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "ReceiveMessage", `{"QueueUrl":"`+queueURL+`"}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		assert.Equal(t, `{"Messages":[]}`, string(body))
+	})
+	t.Run(`ReceiveMessageAfterVisibilityTimeout`, func(t *testing.T) {
+		time.Sleep(3 * time.Second)
+		res, body := requestSQS(t, c, addr, "ReceiveMessage", `{"QueueUrl":"`+queueURL+`"}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		var receiveResponse struct {
+			Messages []struct {
+				MessageID     string `json:"MessageId"`
+				ReceiptHandle string `json:"ReceiptHandle"`
+			} `json:"Messages"`
+		}
+		require.NoError(t, json.Unmarshal(body, &receiveResponse))
+		require.Len(t, receiveResponse.Messages, 1)
+		assert.Equal(t, messageID, receiveResponse.Messages[0].MessageID)
+		receiptHandle = receiveResponse.Messages[0].ReceiptHandle
+	})
 	t.Run(`DeleteMessage`, func(t *testing.T) {
 		res, body := requestSQS(t, c, addr, "DeleteMessage", `{"QueueUrl":"`+queueURL+`","ReceiptHandle":"`+receiptHandle+`"}`)
 		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
