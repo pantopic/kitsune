@@ -31,6 +31,7 @@ func TestAll(t *testing.T) {
 
 	queueURL := "http://" + addr + "/000000000000/kitsune-test-queue"
 	var messageID string
+	var delayedMessageID string
 	var receiptHandle string
 
 	t.Run(`content-type`, func(t *testing.T) {
@@ -182,6 +183,52 @@ func TestAll(t *testing.T) {
 		res, body := requestSQS(t, c, addr, "DeleteMessage", `{"QueueUrl":"`+queueURL+`","ReceiptHandle":"`+receiptHandle+`"}`)
 		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
 		assert.Equal(t, `{}`, string(body))
+	})
+	t.Run(`SetQueueDelayForMessage`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "SetQueueAttributes", `{"QueueUrl":"`+queueURL+`","Attributes":{"DelaySeconds":"2"}}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		assert.Equal(t, `{}`, string(body))
+	})
+	t.Run(`SendDelayedMessage`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "SendMessage", `{"QueueUrl":"`+queueURL+`","MessageBody":"delayed kitsune"}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		var sendResponse struct {
+			MessageID string `json:"MessageId"`
+		}
+		require.NoError(t, json.Unmarshal(body, &sendResponse))
+		require.NotEmpty(t, sendResponse.MessageID)
+		delayedMessageID = sendResponse.MessageID
+	})
+	t.Run(`ReceiveDelayedMessageBeforeReady`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "ReceiveMessage", `{"QueueUrl":"`+queueURL+`"}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		assert.Equal(t, `{"Messages":[]}`, string(body))
+	})
+	t.Run(`ReceiveDelayedMessageAfterReady`, func(t *testing.T) {
+		time.Sleep(3 * time.Second)
+		res, body := requestSQS(t, c, addr, "ReceiveMessage", `{"QueueUrl":"`+queueURL+`"}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		var receiveResponse struct {
+			Messages []struct {
+				MessageID     string `json:"MessageId"`
+				ReceiptHandle string `json:"ReceiptHandle"`
+				Body          string `json:"Body"`
+			} `json:"Messages"`
+		}
+		require.NoError(t, json.Unmarshal(body, &receiveResponse))
+		require.Len(t, receiveResponse.Messages, 1)
+		assert.Equal(t, delayedMessageID, receiveResponse.Messages[0].MessageID)
+		assert.Equal(t, "delayed kitsune", receiveResponse.Messages[0].Body)
+		receiptHandle = receiveResponse.Messages[0].ReceiptHandle
+	})
+	t.Run(`DeleteDelayedMessage`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "DeleteMessage", `{"QueueUrl":"`+queueURL+`","ReceiptHandle":"`+receiptHandle+`"}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+		assert.Equal(t, `{}`, string(body))
+	})
+	t.Run(`ResetQueueDelayAfterMessage`, func(t *testing.T) {
+		res, body := requestSQS(t, c, addr, "SetQueueAttributes", `{"QueueUrl":"`+queueURL+`","Attributes":{"DelaySeconds":"0"}}`)
+		require.Equal(t, http.StatusOK, res.StatusCode, string(body))
 	})
 	t.Run(`SendMessageForPurge`, func(t *testing.T) {
 		res, body := requestSQS(t, c, addr, "SendMessage", `{"QueueUrl":"`+queueURL+`","MessageBody":"purge me"}`)
