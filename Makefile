@@ -11,7 +11,7 @@ build-cluster:
 	@go build -ldflags="-s -w" -o _dist/pcb ./cmd/cluster
 
 test:
-	@go test -v
+	@cd test && go test -v
 
 integration:
 	@go test ./...
